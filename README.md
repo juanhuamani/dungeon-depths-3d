@@ -1,6 +1,6 @@
-# 🏰 Dungeon Depths 3D
+# Dungeon Depths 3D
 
-Videojuego 3D en OpenGL con generación aleatoria de mazmorras. Proyecto final del curso de **Computación Gráfica** — UNSA.
+Videojuego 3D en OpenGL con generación aleatoria de mazmorras. Proyecto final del curso de Computación Gráfica.
 
 ## Descripción
 
@@ -44,7 +44,7 @@ sudo apt install build-essential cmake libglfw3-dev libglm-dev
 sudo dnf install gcc-c++ cmake glfw-devel glm-devel
 ```
 
-> GLAD y stb_image ya están incluidos en `vendor/`.
+> GLAD y stb_image están incluidos en `vendor/`.
 
 ## Compilación
 
