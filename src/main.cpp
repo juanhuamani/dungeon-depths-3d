@@ -2,8 +2,11 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
+#include "world/DungeonConsoleTest.h"
+
 #include <iostream>
 #include <cstdlib>
+#include <string>
 
 constexpr int   WINDOW_WIDTH  = 1280;
 constexpr int   WINDOW_HEIGHT = 720;
@@ -20,8 +23,13 @@ void processInput(GLFWwindow* window)
         glfwSetWindowShouldClose(window, true);
 }
 
-int main()
+int main(int argc, char* argv[])
 {
+    if (argc > 1 && std::string(argv[1]) == "--test-dungeon") {
+        world::runDungeonConsoleTest();
+        return EXIT_SUCCESS;
+    }
+
     if (!glfwInit())
     {
         std::cerr << "Error: No se pudo inicializar GLFW\n";
