@@ -10,8 +10,10 @@ glm::mat4 Camera2D::viewProjection(float viewportWidth, float viewportHeight) co
     const float halfHeight = (baseHeight / zoom_) * 0.5f;
     const float halfWidth = halfHeight * aspect;
 
-    const glm::mat4 projection = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, -1.0f, 1.0f);
-    const glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(-position_.x, -position_.y, 0.0f));
+    const glm::vec3 eye(position_.x, 80.0f, position_.y);
+    const glm::vec3 center(position_.x, 0.0f, position_.y);
+    const glm::mat4 view = glm::lookAt(eye, center, glm::vec3(0.0f, 0.0f, -1.0f));
+    const glm::mat4 projection = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, 0.1f, 200.0f);
     return projection * view;
 }
 

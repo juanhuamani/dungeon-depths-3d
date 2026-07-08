@@ -1,11 +1,108 @@
 #include "render/TileBatch.h"
 
+#include "render/MeshBuilder.h"
 #include "render/TileColors.h"
 #include "render/TileCoordinates.h"
 
 namespace render {
 
-TileBatch::~TileBatch() {
+namespace {
+
+using namespace TileMeshConfig;
+
+void addFloorSlab(std::vector<TileVertex>& vertices,
+                  std::vector<GLuint>& indices,
+                  const glm::vec3& origin,
+                  float tileSize,
+                  const glm::vec4& color) {
+    addAxisAlignedBox(
+        vertices,
+        indices,
+        origin,
+        origin + glm::vec3(tileSize, kFloorHeight, tileSize),
+        color);
+}
+
+void addWallBlock(std::vector<TileVertex>& vertices,
+                  std::vector<GLuint>& indices,
+                  const glm::vec3& origin,
+                  float tileSize,
+                  const glm::vec4& color) {
+    addAxisAlignedBox(
+        vertices,
+        indices,
+        origin + glm::vec3(0.0f, kFloorHeight, 0.0f),
+        origin + glm::vec3(tileSize, kWallHeight, tileSize),
+        color);
+}
+
+void addDoorFrame(std::vector<TileVertex>& vertices,
+                  std::vector<GLuint>& indices,
+                  const glm::vec3& origin,
+                  float tileSize,
+                  const glm::vec4& color) {
+    const float pillar = tileSize * kDoorPillarRatio;
+    const float yBase = kFloorHeight;
+
+    addFloorSlab(vertices, indices, origin, tileSize, color);
+
+    addAxisAlignedBox(
+        vertices,
+        indices,
+        origin + glm::vec3(0.0f, yBase, 0.0f),
+        origin + glm::vec3(pillar, kDoorHeight, tileSize),
+        color);
+
+    addAxisAlignedBox(
+        vertices,
+        indices,
+        origin + glm::vec3(tileSize - pillar, yBase, 0.0f),
+        origin + glm::vec3(tileSize, kDoorHeight, tileSize),
+        color);
+
+    addAxisAlignedBox(
+        vertices,
+        indices,
+        origin + glm::vec3(0.0f, kDoorHeight, 0.0f),
+        origin + glm::vec3(tileSize, kWallHeight, tileSize),
+        color);
+}
+
+void buildTileGeometry(std::vector<TileVertex>& vertices,
+                       std::vector<GLuint>& indices,
+                       world::TileType type,
+                       const glm::vec3& origin,
+                       float tileSize) {
+    const glm::vec4 color = colorForTileType(type);
+
+    switch (type) {
+        case world::TileType::Room:
+        case world::TileType::Corridor:
+        case world::TileType::Entrance:
+        case world::TileType::Exit:
+        case world::TileType::Treasure:
+        case world::TileType::Enemy:
+        case world::TileType::Key:
+            addFloorSlab(vertices, indices, origin, tileSize, color);
+            break;
+        case world::TileType::Wall:
+            addFloorSlab(vertices, indices, origin, tileSize,
+                         glm::vec4(color.r * 0.6f, color.g * 0.6f, color.b * 0.6f, 1.0f));
+            addWallBlock(vertices, indices, origin, tileSize, color);
+            break;
+        case world::TileType::Door:
+            addDoorFrame(vertices, indices, origin, tileSize, color);
+            break;
+        default:
+            break;
+    }
+}
+
+} // namespace
+
+TileBatch::~TileBatch() = default;
+
+void TileBatch::destroyGpu() {
     clearGpu();
 }
 
@@ -36,24 +133,8 @@ void TileBatch::buildFromTileMap(const world::TileMap& tileMap, float tileSize) 
                 continue;
             }
 
-            const glm::vec4 color = colorForTileType(type);
-            const glm::vec2 topLeft = tileToWorld({row, col}, tileSize);
-            const glm::vec2 bottomLeft{topLeft.x, topLeft.y - tileSize};
-            const glm::vec2 bottomRight{topLeft.x + tileSize, topLeft.y - tileSize};
-            const glm::vec2 topRight{topLeft.x + tileSize, topLeft.y};
-
-            const GLuint baseIndex = static_cast<GLuint>(vertices_.size());
-            vertices_.push_back({{bottomLeft.x, bottomLeft.y, 0.0f}, color});
-            vertices_.push_back({{bottomRight.x, bottomRight.y, 0.0f}, color});
-            vertices_.push_back({{topRight.x, topRight.y, 0.0f}, color});
-            vertices_.push_back({{topLeft.x, topLeft.y, 0.0f}, color});
-
-            indices_.push_back(baseIndex + 0);
-            indices_.push_back(baseIndex + 1);
-            indices_.push_back(baseIndex + 2);
-            indices_.push_back(baseIndex + 2);
-            indices_.push_back(baseIndex + 3);
-            indices_.push_back(baseIndex + 0);
+            const glm::vec3 origin = tileOrigin({row, col}, tileSize);
+            buildTileGeometry(vertices_, indices_, type, origin, tileSize);
         }
     }
 

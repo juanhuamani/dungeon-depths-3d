@@ -21,7 +21,9 @@ std::string readFile(const std::string& path) {
 
 } // namespace
 
-Shader::~Shader() {
+Shader::~Shader() = default;
+
+void Shader::destroy() {
     if (programId_ != 0) {
         glDeleteProgram(programId_);
         programId_ = 0;

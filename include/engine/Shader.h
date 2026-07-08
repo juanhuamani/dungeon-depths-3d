@@ -18,6 +18,7 @@ public:
     bool loadFromFiles(const std::string& vertexPath, const std::string& fragmentPath);
     void use() const;
     void setMat4(const std::string& name, const glm::mat4& value) const;
+    void destroy();
 
     GLuint id() const { return programId_; }
 

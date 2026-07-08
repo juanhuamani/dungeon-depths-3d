@@ -30,7 +30,7 @@ void scrollCallback(GLFWwindow*, double /*xoffset*/, double yoffset) {
         return;
     }
     const float zoomFactor = yoffset > 0.0 ? 1.1f : 0.9f;
-    g_game->camera().zoomBy(zoomFactor);
+    g_game->mapCamera().zoomBy(zoomFactor);
 }
 
 void processInput(GLFWwindow* window) {
@@ -78,43 +78,50 @@ int main(int argc, char* argv[]) {
 
     std::cout << "OpenGL " << GLAD_VERSION_MAJOR(version) << "."
               << GLAD_VERSION_MINOR(version) << " inicializado\n";
+    std::cout << "Controles: WASD/flechas=mover  scroll=zoom  Z=vista 2D  X=vista 3D  ESC=salir\n";
 
     glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
     glClearColor(0.05f, 0.05f, 0.12f, 1.0f);
 
-    game::Game game;
-    g_game = &game;
+    {
+        game::Game game;
+        g_game = &game;
 
-    if (!game.init(WINDOW_WIDTH, WINDOW_HEIGHT, TILE_VERT_SHADER, TILE_FRAG_SHADER)) {
+        if (!game.init(WINDOW_WIDTH, WINDOW_HEIGHT, TILE_VERT_SHADER, TILE_FRAG_SHADER)) {
+            g_game = nullptr;
+            glfwDestroyWindow(window);
+            glfwTerminate();
+            return EXIT_FAILURE;
+        }
+
+        float lastFrame = static_cast<float>(glfwGetTime());
+
+        while (!glfwWindowShouldClose(window)) {
+            const float currentFrame = static_cast<float>(glfwGetTime());
+            const float deltaTime = currentFrame - lastFrame;
+            lastFrame = currentFrame;
+
+            processInput(window);
+            game.update(deltaTime, window);
+
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            int framebufferWidth = 0;
+            int framebufferHeight = 0;
+            glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+            game.render(framebufferWidth, framebufferHeight);
+
+            glfwSwapBuffers(window);
+            glfwPollEvents();
+        }
+
         g_game = nullptr;
-        glfwDestroyWindow(window);
-        glfwTerminate();
-        return EXIT_FAILURE;
+        game.shutdown();
     }
 
-    float lastFrame = static_cast<float>(glfwGetTime());
-
-    while (!glfwWindowShouldClose(window)) {
-        const float currentFrame = static_cast<float>(glfwGetTime());
-        const float deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
-
-        processInput(window);
-        game.update(deltaTime, window);
-
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        int framebufferWidth = 0;
-        int framebufferHeight = 0;
-        glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
-        game.render(framebufferWidth, framebufferHeight);
-
-        glfwSwapBuffers(window);
-        glfwPollEvents();
-    }
-
-    g_game = nullptr;
     glfwDestroyWindow(window);
     glfwTerminate();
     return EXIT_SUCCESS;

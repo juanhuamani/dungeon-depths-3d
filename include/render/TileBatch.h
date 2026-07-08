@@ -1,18 +1,13 @@
 #pragma once
 
+#include "render/MeshBuilder.h"
 #include "world/TileMap.h"
 
 #include <glad/gl.h>
-#include <glm/glm.hpp>
 
 #include <vector>
 
 namespace render {
-
-struct TileVertex {
-    glm::vec3 position;
-    glm::vec4 color;
-};
 
 class TileBatch {
 public:
@@ -24,6 +19,7 @@ public:
 
     void buildFromTileMap(const world::TileMap& tileMap, float tileSize);
     void draw() const;
+    void destroyGpu();
     bool isEmpty() const { return indexCount_ == 0; }
 
 private:

@@ -19,10 +19,10 @@ public:
 
     void pan(const glm::vec2& delta) { position_ += delta; }
     void zoomBy(float factor);
-    void centerOn(const glm::vec2& worldCenter) { position_ = worldCenter; }
+    void centerOn(const glm::vec2& worldCenterXZ) { position_ = worldCenterXZ; }
 
 private:
-    glm::vec2 position_{0.0f};
+    glm::vec2 position_{0.0f}; // X y Z del plano del suelo
     float zoom_ = 1.0f;
     float tileSize_ = 1.0f;
 };

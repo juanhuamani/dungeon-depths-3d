@@ -40,7 +40,7 @@ bool Game::init(int viewportWidth, int viewportHeight,
 
     level_.generate(generatorConfig, layoutConfig);
 
-    camera_.setTileSize(tileSize_);
+    mapCamera_.camera2D().setTileSize(tileSize_);
     tileRenderer_.setTileSize(tileSize_);
     tileRenderer_.setTileMap(level_.tileMap());
     centerCameraOnLevel();
@@ -49,24 +49,27 @@ bool Game::init(int viewportWidth, int viewportHeight,
     return true;
 }
 
+void Game::shutdown() {
+    if (!initialized_) {
+        return;
+    }
+    tileRenderer_.shutdown();
+    initialized_ = false;
+}
+
 void Game::centerCameraOnLevel() {
     const std::optional<world::TileRect> bounds = level_.contentBounds();
     if (!bounds.has_value()) {
-        camera_.centerOn({0.0f, 0.0f});
+        mapCamera_.centerOn({0.0f, 0.0f});
         return;
     }
 
-    const glm::vec2 center = render::tileRectCenterWorld(bounds.value(), tileSize_);
-    camera_.centerOn(center);
-
+    const glm::vec2 center = render::tileRectCenterXZ(bounds.value(), tileSize_);
     const float mapWidth = static_cast<float>(bounds->width) * tileSize_;
     const float mapHeight = static_cast<float>(bounds->height) * tileSize_;
-    const float aspect = static_cast<float>(viewportWidth_) / static_cast<float>(viewportHeight_);
-    const float baseHeight = 40.0f;
-
-    const float zoomForHeight = baseHeight / std::max(mapHeight * 1.4f, 1.0f);
-    const float zoomForWidth = (baseHeight * aspect) / std::max(mapWidth * 1.4f, 1.0f);
-    camera_.setZoom(std::min(zoomForHeight, zoomForWidth));
+    mapCamera_.fitToMap(center, mapWidth, mapHeight,
+                      static_cast<float>(viewportWidth_),
+                      static_cast<float>(viewportHeight_));
 }
 
 void Game::onFramebufferResize(int width, int height) {
@@ -74,9 +77,29 @@ void Game::onFramebufferResize(int width, int height) {
     viewportHeight_ = std::max(height, 1);
 }
 
+void Game::processViewModeInput(GLFWwindow* window) {
+    const bool zDown = isKeyDown(window, GLFW_KEY_Z);
+    const bool xDown = isKeyDown(window, GLFW_KEY_X);
+
+    if (zDown && !zKeyWasDown_) {
+        mapCamera_.setMode(render::ViewMode::TopDown);
+        std::cout << "Vista: cenital (2D)\n";
+    }
+    if (xDown && !xKeyWasDown_) {
+        mapCamera_.setMode(render::ViewMode::Perspective3D);
+        std::cout << "Vista: perspectiva (3D)\n";
+    }
+
+    zKeyWasDown_ = zDown;
+    xKeyWasDown_ = xDown;
+}
+
 void Game::processCameraInput(GLFWwindow* window, float deltaTime) {
     glm::vec2 panDelta{0.0f, 0.0f};
-    const float speed = cameraPanSpeed_ * deltaTime / camera_.zoom();
+    const float zoom = mapCamera_.mode() == render::ViewMode::TopDown
+        ? mapCamera_.camera2D().zoom()
+        : mapCamera_.camera3D().distance() / 60.0f;
+    const float speed = cameraPanSpeed_ * deltaTime / std::max(zoom, 0.1f);
 
     if (isKeyDown(window, GLFW_KEY_W) || isKeyDown(window, GLFW_KEY_UP)) {
         panDelta.y += speed;
@@ -92,19 +115,20 @@ void Game::processCameraInput(GLFWwindow* window, float deltaTime) {
     }
 
     if (isKeyDown(window, GLFW_KEY_EQUAL) || isKeyDown(window, GLFW_KEY_KP_ADD)) {
-        camera_.zoomBy(1.0f + deltaTime * 2.0f);
+        mapCamera_.zoomBy(1.0f + deltaTime * 2.0f);
     }
     if (isKeyDown(window, GLFW_KEY_MINUS) || isKeyDown(window, GLFW_KEY_KP_SUBTRACT)) {
-        camera_.zoomBy(1.0f / (1.0f + deltaTime * 2.0f));
+        mapCamera_.zoomBy(1.0f / (1.0f + deltaTime * 2.0f));
     }
 
-    camera_.pan(panDelta);
+    mapCamera_.pan(panDelta);
 }
 
 void Game::update(float deltaTime, GLFWwindow* window) {
     if (!initialized_) {
         return;
     }
+    processViewModeInput(window);
     processCameraInput(window, deltaTime);
 }
 
@@ -112,7 +136,12 @@ void Game::render(int viewportWidth, int viewportHeight) const {
     if (!initialized_) {
         return;
     }
-    tileRenderer_.render(camera_, static_cast<float>(viewportWidth), static_cast<float>(viewportHeight));
+
+    const glm::mat4 viewProjection = mapCamera_.viewProjection(
+        static_cast<float>(viewportWidth),
+        static_cast<float>(viewportHeight));
+
+    tileRenderer_.render(viewProjection);
 }
 
 } // namespace game
