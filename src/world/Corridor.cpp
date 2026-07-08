@@ -19,4 +19,12 @@ RoomId Corridor::otherRoom(RoomId roomId) const {
     return kInvalidRoomId;
 }
 
+void Corridor::appendToCarvedPath(const std::vector<TilePos>& segment) {
+    for (const TilePos& pos : segment) {
+        if (carvedPath_.empty() || carvedPath_.back() != pos) {
+            carvedPath_.push_back(pos);
+        }
+    }
+}
+
 } // namespace world

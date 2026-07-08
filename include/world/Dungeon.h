@@ -22,7 +22,9 @@ public:
 
     const std::vector<std::vector<GridCell>>& grid() const { return grid_; }
     const std::vector<Room>& rooms() const { return rooms_; }
+    std::vector<Room>& rooms() { return rooms_; }
     const std::vector<Corridor>& corridors() const { return corridors_; }
+    std::vector<Corridor>& corridors() { return corridors_; }
     const std::vector<Door>& doors() const { return doors_; }
 
     RoomId entranceId() const { return entranceId_; }
@@ -33,6 +35,7 @@ public:
 
     void initGrid(int rows, int cols);
     void clear();
+    void clearPhysicalData();
 
     bool isInBounds(GridPos pos) const;
     bool isCellFree(GridPos pos) const;
@@ -48,6 +51,9 @@ public:
     const Room* getRoom(RoomId roomId) const;
     Room* getRoom(RoomId roomId);
     const Corridor* getCorridor(CorridorId corridorId) const;
+    Corridor* getCorridor(CorridorId corridorId);
+
+    Door& addDoor(RoomId ownerRoomId, RoomId otherRoomId, CorridorId corridorId, TilePos tilePos);
 
     bool areConnected(RoomId roomA, RoomId roomB) const;
     bool hasPath(RoomId from, RoomId to) const;
@@ -72,6 +78,7 @@ private:
 
     RoomId entranceId_ = kInvalidRoomId;
     RoomId exitId_ = kInvalidRoomId;
+    DoorId nextDoorId_ = 0;
 };
 
 } // namespace world

@@ -27,4 +27,14 @@ void Room::addConnection(CorridorId corridorId) {
     connections_.push_back(corridorId);
 }
 
+void Room::addDoorPlacement(DoorPlacement placement) {
+    doorPlacements_.push_back(placement);
+}
+
+void Room::clearPhysicalData() {
+    bounds_ = {};
+    physicalCenter_ = {};
+    doorPlacements_.clear();
+}
+
 } // namespace world

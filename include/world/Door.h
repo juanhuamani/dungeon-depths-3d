@@ -15,9 +15,13 @@ public:
     CorridorId corridorId() const { return corridorId_; }
     bool isLocked() const { return locked_; }
     int keyId() const { return keyId_; }
+    TilePos tilePos() const { return tilePos_; }
+    RoomId ownerRoomId() const { return ownerRoomId_; }
 
     void setLocked(bool locked) { locked_ = locked; }
     void setKeyId(int keyId) { keyId_ = keyId; }
+    void setTilePos(TilePos pos) { tilePos_ = pos; }
+    void setOwnerRoomId(RoomId id) { ownerRoomId_ = id; }
 
 private:
     DoorId id_ = kInvalidDoorId;
@@ -26,6 +30,8 @@ private:
     CorridorId corridorId_ = kInvalidCorridorId;
     bool locked_ = false;
     int keyId_ = -1;
+    TilePos tilePos_{};
+    RoomId ownerRoomId_ = kInvalidRoomId;
 };
 
 } // namespace world

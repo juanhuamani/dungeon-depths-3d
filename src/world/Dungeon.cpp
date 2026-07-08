@@ -39,8 +39,20 @@ void Dungeon::clear() {
     roomIndex_.clear();
     nextRoomId_ = 0;
     nextCorridorId_ = 0;
+    nextDoorId_ = 0;
     entranceId_ = kInvalidRoomId;
     exitId_ = kInvalidRoomId;
+}
+
+void Dungeon::clearPhysicalData() {
+    for (Room& room : rooms_) {
+        room.clearPhysicalData();
+    }
+    for (Corridor& corridor : corridors_) {
+        corridor.clearPhysicalData();
+    }
+    doors_.clear();
+    nextDoorId_ = 0;
 }
 
 bool Dungeon::isInBounds(GridPos pos) const {
@@ -175,6 +187,22 @@ const Corridor* Dungeon::getCorridor(CorridorId corridorId) const {
         return nullptr;
     }
     return &corridors_[static_cast<size_t>(corridorId)];
+}
+
+Corridor* Dungeon::getCorridor(CorridorId corridorId) {
+    if (corridorId < 0 || corridorId >= static_cast<CorridorId>(corridors_.size())) {
+        return nullptr;
+    }
+    return &corridors_[static_cast<size_t>(corridorId)];
+}
+
+Door& Dungeon::addDoor(RoomId ownerRoomId, RoomId otherRoomId, CorridorId corridorId, TilePos tilePos) {
+    DoorId doorId = nextDoorId_++;
+    Door door(doorId, ownerRoomId, otherRoomId, corridorId);
+    door.setOwnerRoomId(ownerRoomId);
+    door.setTilePos(tilePos);
+    doors_.push_back(std::move(door));
+    return doors_.back();
 }
 
 bool Dungeon::areConnected(RoomId roomA, RoomId roomB) const {
