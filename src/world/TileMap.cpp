@@ -306,4 +306,30 @@ bool TileMap::allRoomTilesReachable(TilePos from) const {
     return reachableInterior == totalInterior;
 }
 
+std::optional<TileRect> TileMap::contentBounds() const {
+    int minRow = rows_;
+    int minCol = cols_;
+    int maxRow = 0;
+    int maxCol = 0;
+    bool found = false;
+
+    for (int r = 0; r < rows_; ++r) {
+        for (int c = 0; c < cols_; ++c) {
+            if (tiles_[static_cast<size_t>(r)][static_cast<size_t>(c)] != TileType::Empty) {
+                found = true;
+                minRow = std::min(minRow, r);
+                minCol = std::min(minCol, c);
+                maxRow = std::max(maxRow, r);
+                maxCol = std::max(maxCol, c);
+            }
+        }
+    }
+
+    if (!found) {
+        return std::nullopt;
+    }
+
+    return TileRect{minRow, minCol, maxCol - minCol + 1, maxRow - minRow + 1};
+}
+
 } // namespace world

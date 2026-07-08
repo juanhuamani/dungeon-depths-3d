@@ -13,9 +13,6 @@ public:
     static void printCompact(std::ostream& out, const TileMap& tileMap);
     static void printLegend(std::ostream& out);
     static char tileToChar(TileType type);
-
-private:
-    static std::optional<TileRect> contentBounds(const TileMap& tileMap);
 };
 
 } // namespace world

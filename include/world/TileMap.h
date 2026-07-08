@@ -2,6 +2,7 @@
 
 #include "world/DungeonTypes.h"
 
+#include <optional>
 #include <vector>
 
 namespace world {
@@ -29,6 +30,7 @@ public:
     std::vector<TilePos> findAllTilesOfType(TileType type) const;
     bool isReachable(TilePos from, TilePos to) const;
     bool allRoomTilesReachable(TilePos from) const;
+    std::optional<TileRect> contentBounds() const;
 
 private:
     void carveWallRing(const TileRect& rect);
