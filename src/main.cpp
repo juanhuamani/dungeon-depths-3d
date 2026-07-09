@@ -32,18 +32,15 @@ void framebufferSizeCallback(GLFWwindow*, int width, int height) {
     }
 }
 
-void scrollCallback(GLFWwindow*, double /*xoffset*/, double yoffset) {
-    if (!g_game) {
-        return;
-    }
+void scrollCallback(GLFWwindow*, double, double yoffset) {
+    if (!g_game) return;
     const float zoomFactor = yoffset > 0.0 ? 1.1f : 0.9f;
     g_game->mapCamera().zoomBy(zoomFactor);
 }
 
 void processInput(GLFWwindow* window) {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
-    }
 }
 
 } // namespace
@@ -85,15 +82,12 @@ int main(int argc, char* argv[]) {
 
     std::cout << "OpenGL " << GLAD_VERSION_MAJOR(version) << "."
               << GLAD_VERSION_MINOR(version) << " inicializado\n";
-    std::cout << "Controles: WASD/flechas=mover  scroll=zoom  Z=vista 2D  X=vista 3D  ESC=salir\n";
 
     glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
     glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
+    glDisable(GL_CULL_FACE);
     glClearColor(0.05f, 0.05f, 0.12f, 1.0f);
 
-    // Initialize input, debug renderer, camera and player systems
     InputManager::init(window);
 
     DebugRenderer debugRenderer;
@@ -108,19 +102,14 @@ int main(int argc, char* argv[]) {
     Player player;
     PlayerController playerController(player, camera);
 
-    float aspectRatio = static_cast<float>(WINDOW_WIDTH) / static_cast<float>(WINDOW_HEIGHT);
-    glm::mat4 projection = glm::perspective(glm::radians(70.0f), aspectRatio, 0.1f, 100.0f);
+    std::cout << "=== Dungeon Depths 3D ===" << std::endl;
+    std::cout << "  WASD      - Moverse" << std::endl;
+    std::cout << "  Mouse     - Mirar" << std::endl;
+    std::cout << "  Click izq - Espada" << std::endl;
+    std::cout << "  Click der - Ballesta" << std::endl;
+    std::cout << "  V         - 1ra/3ra persona" << std::endl;
+    std::cout << "  ESC       - Salir" << std::endl;
 
-    std::cout << "=== Dungeon Depths 3D ===\n";
-    std::cout << "Controles:\n";
-    std::cout << "  WASD      - Moverse\n";
-    std::cout << "  Mouse     - Mirar\n";
-    std::cout << "  Click izq - Espada (melee)\n";
-    std::cout << "  Click der - Ballesta (ranged)\n";
-    std::cout << "  V         - Cambiar 1ra/3ra persona\n";
-    std::cout << "  ESC       - Salir\n";
-
-    // Initialize the game (dungeon generation + tile rendering)
     {
         game::Game game;
         g_game = &game;
@@ -132,6 +121,9 @@ int main(int argc, char* argv[]) {
             return EXIT_FAILURE;
         }
 
+        glm::vec3 spawnPos = game.getPlayerSpawnPosition();
+        player.resetForNewLevel(spawnPos);
+
         float lastFrame = static_cast<float>(glfwGetTime());
 
         while (!glfwWindowShouldClose(window)) {
@@ -142,7 +134,6 @@ int main(int argc, char* argv[]) {
             const float deltaTime = currentFrame - lastFrame;
             lastFrame = currentFrame;
 
-            // Process input
             processInput(window);
 
             if (InputManager::isKeyPressed(GLFW_KEY_V))
@@ -152,30 +143,37 @@ int main(int argc, char* argv[]) {
             InputManager::getMouseDelta(mouseDX, mouseDY);
             playerController.handleMouseMovement(mouseDX, mouseDY);
 
-            // Update game and player
             game.update(deltaTime, window);
+
+            glm::vec3 oldPos = player.transform.position;
             playerController.handleInput(deltaTime);
             player.update(deltaTime);
 
-            glm::mat4 view = camera.getViewMatrix(player.transform.position);
-
-            // Render
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glm::vec3 corrected = game.resolveWallCollision(
+                player.transform.position, Player::HALF_SIZE);
+            player.transform.position = corrected;
 
             int framebufferWidth = 0;
             int framebufferHeight = 0;
             glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
-            game.render(framebufferWidth, framebufferHeight);
+            float aspectRatio = static_cast<float>(framebufferWidth) /
+                                static_cast<float>(std::max(framebufferHeight, 1));
 
-            // Debug rendering (player cube, melee hitbox, crosshair)
+            glm::mat4 view = camera.getViewMatrix(player.transform.position);
+            glm::mat4 projection = glm::perspective(
+                glm::radians(70.0f), aspectRatio, 0.1f, 200.0f);
+            glm::mat4 viewProjection = projection * view;
+
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            game.renderWithViewProjection(viewProjection);
+
             debugRenderer.setViewProjection(view, projection);
 
             if (camera.getMode() == CameraMode::THIRD_PERSON) {
                 glm::vec3 playerColor(0.2f, 0.45f, 0.85f);
-
                 if (player.isAttacking() && player.getCurrentAttack() == AttackType::MELEE)
                     playerColor = glm::vec3(0.9f, 0.3f, 0.1f);
-
                 debugRenderer.drawCube(player.transform.getModelMatrix(), playerColor);
             }
 
@@ -188,8 +186,8 @@ int main(int argc, char* argv[]) {
 
             if (camera.getMode() == CameraMode::FIRST_PERSON) {
                 debugRenderer.drawCrosshair(
-                    static_cast<float>(WINDOW_WIDTH),
-                    static_cast<float>(WINDOW_HEIGHT),
+                    static_cast<float>(framebufferWidth),
+                    static_cast<float>(framebufferHeight),
                     20.0f,
                     glm::vec3(1.0f, 1.0f, 1.0f)
                 );

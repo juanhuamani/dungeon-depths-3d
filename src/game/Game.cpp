@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <cmath>
 
 namespace game {
 
@@ -50,9 +51,7 @@ bool Game::init(int viewportWidth, int viewportHeight,
 }
 
 void Game::shutdown() {
-    if (!initialized_) {
-        return;
-    }
+    if (!initialized_) return;
     tileRenderer_.shutdown();
     initialized_ = false;
 }
@@ -83,65 +82,131 @@ void Game::processViewModeInput(GLFWwindow* window) {
 
     if (zDown && !zKeyWasDown_) {
         mapCamera_.setMode(render::ViewMode::TopDown);
-        std::cout << "Vista: cenital (2D)\n";
     }
     if (xDown && !xKeyWasDown_) {
         mapCamera_.setMode(render::ViewMode::Perspective3D);
-        std::cout << "Vista: perspectiva (3D)\n";
     }
 
     zKeyWasDown_ = zDown;
     xKeyWasDown_ = xDown;
 }
 
-void Game::processCameraInput(GLFWwindow* window, float deltaTime) {
-    glm::vec2 panDelta{0.0f, 0.0f};
-    const float zoom = mapCamera_.mode() == render::ViewMode::TopDown
-        ? mapCamera_.camera2D().zoom()
-        : mapCamera_.camera3D().distance() / 60.0f;
-    const float speed = cameraPanSpeed_ * deltaTime / std::max(zoom, 0.1f);
-
-    if (isKeyDown(window, GLFW_KEY_W) || isKeyDown(window, GLFW_KEY_UP)) {
-        panDelta.y += speed;
-    }
-    if (isKeyDown(window, GLFW_KEY_S) || isKeyDown(window, GLFW_KEY_DOWN)) {
-        panDelta.y -= speed;
-    }
-    if (isKeyDown(window, GLFW_KEY_A) || isKeyDown(window, GLFW_KEY_LEFT)) {
-        panDelta.x -= speed;
-    }
-    if (isKeyDown(window, GLFW_KEY_D) || isKeyDown(window, GLFW_KEY_RIGHT)) {
-        panDelta.x += speed;
-    }
-
-    if (isKeyDown(window, GLFW_KEY_EQUAL) || isKeyDown(window, GLFW_KEY_KP_ADD)) {
-        mapCamera_.zoomBy(1.0f + deltaTime * 2.0f);
-    }
-    if (isKeyDown(window, GLFW_KEY_MINUS) || isKeyDown(window, GLFW_KEY_KP_SUBTRACT)) {
-        mapCamera_.zoomBy(1.0f / (1.0f + deltaTime * 2.0f));
-    }
-
-    mapCamera_.pan(panDelta);
+void Game::processCameraInput(GLFWwindow*, float) {
 }
 
 void Game::update(float deltaTime, GLFWwindow* window) {
-    if (!initialized_) {
-        return;
-    }
+    if (!initialized_) return;
     processViewModeInput(window);
-    processCameraInput(window, deltaTime);
 }
 
 void Game::render(int viewportWidth, int viewportHeight) const {
-    if (!initialized_) {
-        return;
-    }
+    if (!initialized_) return;
 
     const glm::mat4 viewProjection = mapCamera_.viewProjection(
         static_cast<float>(viewportWidth),
         static_cast<float>(viewportHeight));
 
     tileRenderer_.render(viewProjection);
+}
+
+void Game::renderWithViewProjection(const glm::mat4& viewProjection) const {
+    if (!initialized_) return;
+    tileRenderer_.render(viewProjection);
+}
+
+glm::vec3 Game::getPlayerSpawnPosition() const {
+    auto entranceTiles = level_.tileMap().findAllTilesOfType(world::TileType::Entrance);
+    if (entranceTiles.empty()) {
+        auto roomTiles = level_.tileMap().findAllTilesOfType(world::TileType::Room);
+        if (roomTiles.empty()) {
+            return glm::vec3(0.0f, 0.0f, 0.0f);
+        }
+        const world::TilePos& pos = roomTiles[0];
+        return glm::vec3(
+            (static_cast<float>(pos.col) + 0.5f) * tileSize_,
+            0.0f,
+            (static_cast<float>(pos.row) + 0.5f) * tileSize_
+        );
+    }
+
+    const world::TilePos& pos = entranceTiles[0];
+    return glm::vec3(
+        (static_cast<float>(pos.col) + 0.5f) * tileSize_,
+        0.0f,
+        (static_cast<float>(pos.row) + 0.5f) * tileSize_
+    );
+}
+
+world::TilePos Game::worldToTile(const glm::vec3& worldPos) const {
+    return {
+        static_cast<int>(std::floor(worldPos.z / tileSize_)),
+        static_cast<int>(std::floor(worldPos.x / tileSize_))
+    };
+}
+
+bool Game::isTileSolid(world::TilePos pos) const {
+    const world::TileMap& tm = level_.tileMap();
+    if (!tm.isInBounds(pos)) return true;
+    world::TileType type = tm.at(pos);
+    return type == world::TileType::Wall || type == world::TileType::Empty;
+}
+
+bool Game::isWalkable(const glm::vec3& worldPos) const {
+    return !isTileSolid(worldToTile(worldPos));
+}
+
+glm::vec3 Game::resolveWallCollision(const glm::vec3& position, const glm::vec3& halfSize) const {
+    glm::vec3 resolved = position;
+    const float pad = 0.05f;
+
+    float rightEdge = resolved.x + halfSize.x;
+    float leftEdge = resolved.x - halfSize.x;
+    float frontEdge = resolved.z + halfSize.z;
+    float backEdge = resolved.z - halfSize.z;
+
+    auto checkSolid = [&](float x, float z) -> bool {
+        return isTileSolid(worldToTile(glm::vec3(x, 0.0f, z)));
+    };
+
+    if (checkSolid(rightEdge, resolved.z) ||
+        checkSolid(rightEdge, backEdge) ||
+        checkSolid(rightEdge, frontEdge)) {
+        int tileCol = static_cast<int>(std::floor(rightEdge / tileSize_));
+        float wallLeft = static_cast<float>(tileCol) * tileSize_;
+        resolved.x = wallLeft - halfSize.x - pad;
+    }
+
+    leftEdge = resolved.x - halfSize.x;
+    if (checkSolid(leftEdge, resolved.z) ||
+        checkSolid(leftEdge, resolved.z - halfSize.z) ||
+        checkSolid(leftEdge, resolved.z + halfSize.z)) {
+        int tileCol = static_cast<int>(std::floor(leftEdge / tileSize_));
+        float wallRight = (static_cast<float>(tileCol) + 1.0f) * tileSize_;
+        resolved.x = wallRight + halfSize.x + pad;
+    }
+
+    rightEdge = resolved.x + halfSize.x;
+    leftEdge = resolved.x - halfSize.x;
+
+    if (checkSolid(resolved.x, frontEdge) ||
+        checkSolid(leftEdge, frontEdge) ||
+        checkSolid(rightEdge, frontEdge)) {
+        int tileRow = static_cast<int>(std::floor(frontEdge / tileSize_));
+        float wallBack = static_cast<float>(tileRow) * tileSize_;
+        resolved.z = wallBack - halfSize.z - pad;
+    }
+
+    frontEdge = resolved.z + halfSize.z;
+    backEdge = resolved.z - halfSize.z;
+    if (checkSolid(resolved.x, backEdge) ||
+        checkSolid(leftEdge, backEdge) ||
+        checkSolid(rightEdge, backEdge)) {
+        int tileRow = static_cast<int>(std::floor(backEdge / tileSize_));
+        float wallFront = (static_cast<float>(tileRow) + 1.0f) * tileSize_;
+        resolved.z = wallFront + halfSize.z + pad;
+    }
+
+    return resolved;
 }
 
 } // namespace game
