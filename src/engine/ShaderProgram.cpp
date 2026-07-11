@@ -8,8 +8,16 @@
 
 ShaderProgram::~ShaderProgram()
 {
+    destroy();
+}
+
+void ShaderProgram::destroy()
+{
     if (m_programID != 0)
+    {
         glDeleteProgram(m_programID);
+        m_programID = 0;
+    }
 }
 
 ShaderProgram::ShaderProgram(ShaderProgram&& other) noexcept
@@ -22,8 +30,7 @@ ShaderProgram& ShaderProgram::operator=(ShaderProgram&& other) noexcept
 {
     if (this != &other)
     {
-        if (m_programID != 0)
-            glDeleteProgram(m_programID);
+        destroy();
         m_programID = other.m_programID;
         other.m_programID = 0;
     }

@@ -90,32 +90,33 @@ int main(int argc, char* argv[]) {
 
     InputManager::init(window);
 
-    DebugRenderer debugRenderer;
-    if (!debugRenderer.init()) {
-        std::cerr << "Error: No se pudo inicializar DebugRenderer\n";
-        glfwDestroyWindow(window);
-        glfwTerminate();
-        return EXIT_FAILURE;
-    }
-
-    Camera camera;
-    Player player;
-    PlayerController playerController(player, camera);
-
-    std::cout << "=== Dungeon Depths 3D ===" << std::endl;
-    std::cout << "  WASD      - Moverse" << std::endl;
-    std::cout << "  Mouse     - Mirar" << std::endl;
-    std::cout << "  Click izq - Espada" << std::endl;
-    std::cout << "  Click der - Ballesta" << std::endl;
-    std::cout << "  V         - 1ra/3ra persona" << std::endl;
-    std::cout << "  ESC       - Salir" << std::endl;
-
     {
+        DebugRenderer debugRenderer;
+        if (!debugRenderer.init()) {
+            std::cerr << "Error: No se pudo inicializar DebugRenderer\n";
+            glfwDestroyWindow(window);
+            glfwTerminate();
+            return EXIT_FAILURE;
+        }
+
+        Camera camera;
+        Player player;
+        PlayerController playerController(player, camera);
+
+        std::cout << "=== Dungeon Depths 3D ===" << std::endl;
+        std::cout << "  WASD      - Moverse" << std::endl;
+        std::cout << "  Mouse     - Mirar" << std::endl;
+        std::cout << "  Click izq - Espada" << std::endl;
+        std::cout << "  Click der - Ballesta" << std::endl;
+        std::cout << "  V         - 1ra/3ra persona" << std::endl;
+        std::cout << "  ESC       - Salir" << std::endl;
+
         game::Game game;
         g_game = &game;
 
         if (!game.init(WINDOW_WIDTH, WINDOW_HEIGHT, TILE_VERT_SHADER, TILE_FRAG_SHADER)) {
             g_game = nullptr;
+            debugRenderer.cleanup();
             glfwDestroyWindow(window);
             glfwTerminate();
             return EXIT_FAILURE;
@@ -145,7 +146,6 @@ int main(int argc, char* argv[]) {
 
             game.update(deltaTime, window);
 
-            glm::vec3 oldPos = player.transform.position;
             playerController.handleInput(deltaTime);
             player.update(deltaTime);
 
@@ -198,9 +198,9 @@ int main(int argc, char* argv[]) {
 
         g_game = nullptr;
         game.shutdown();
+        debugRenderer.cleanup();
     }
 
-    debugRenderer.cleanup();
     glfwDestroyWindow(window);
     glfwTerminate();
     return EXIT_SUCCESS;

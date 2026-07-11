@@ -14,6 +14,7 @@ public:
     ShaderProgram(ShaderProgram&& other) noexcept;
     ShaderProgram& operator=(ShaderProgram&& other) noexcept;
     bool loadFromFiles(const std::string& vertexPath, const std::string& fragmentPath);
+    void destroy();
     void use() const;
     GLuint getID() const { return m_programID; }
 

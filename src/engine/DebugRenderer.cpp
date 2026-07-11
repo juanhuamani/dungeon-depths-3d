@@ -23,6 +23,8 @@ void DebugRenderer::cleanup()
     if (m_planeVBO)     { glDeleteBuffers(1, &m_planeVBO);            m_planeVBO     = 0; }
     if (m_crosshairVAO) { glDeleteVertexArrays(1, &m_crosshairVAO);  m_crosshairVAO = 0; }
     if (m_crosshairVBO) { glDeleteBuffers(1, &m_crosshairVBO);        m_crosshairVBO = 0; }
+    m_shader.destroy();
+    m_crosshairShader.destroy();
 }
 
 void DebugRenderer::setViewProjection(const glm::mat4& view, const glm::mat4& projection)

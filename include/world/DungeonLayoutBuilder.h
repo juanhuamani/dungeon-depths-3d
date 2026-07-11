@@ -20,6 +20,7 @@ private:
     bool placeRooms(Dungeon& dungeon, TileMap& tileMap);
     bool placeDoors(Dungeon& dungeon, TileMap& tileMap);
     bool carveCorridors(Dungeon& dungeon, TileMap& tileMap);
+    void sealRoomsAndCorridorWalls(Dungeon& dungeon, TileMap& tileMap);
     bool validateTileMap(const Dungeon& dungeon, const TileMap& tileMap) const;
 
     std::optional<Direction> getConnectionDirection(const Room& from, const Room& to) const;

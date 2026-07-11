@@ -22,6 +22,8 @@ public:
     bool canCarve(TilePos pos) const;
 
     void carveRoom(const TileRect& rect, TileType interiorType);
+    void restoreWallRing(const TileRect& rect);
+    void carveCorridorEdgeWalls();
     bool carveCorridorPath(const std::vector<TilePos>& path, int width);
     bool carveCorridorBetween(TilePos start, TilePos end, int width, bool horizontalFirst);
     std::vector<TilePos> buildLPath(TilePos start, TilePos end, bool horizontalFirst) const;

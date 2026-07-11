@@ -44,12 +44,13 @@ void addAxisAlignedBox(std::vector<TileVertex>& vertices,
     const glm::vec3 v110{mx.x, mx.y, mn.z};
     const glm::vec3 v111{mx.x, mx.y, mx.z};
 
-    addFace(vertices, indices, v010, v110, v111, v011, color); // +X
-    addFace(vertices, indices, v101, v001, v011, v111, color); // +Z
-    addFace(vertices, indices, v100, v000, v010, v110, color); // -X
-    addFace(vertices, indices, v000, v100, v101, v001, color); // -Z
-    addFace(vertices, indices, v011, v111, v110, v010, color); // +Y top
-    addFace(vertices, indices, v000, v001, v101, v100, color); // -Y bottom
+    // CCW winding when viewed from outside (outward normals).
+    addFace(vertices, indices, v100, v110, v111, v101, color); // +X
+    addFace(vertices, indices, v000, v001, v011, v010, color); // -X
+    addFace(vertices, indices, v010, v011, v111, v110, color); // +Y
+    addFace(vertices, indices, v000, v100, v101, v001, color); // -Y
+    addFace(vertices, indices, v001, v101, v111, v011, color); // +Z
+    addFace(vertices, indices, v000, v010, v110, v100, color); // -Z
 }
 
 } // namespace render

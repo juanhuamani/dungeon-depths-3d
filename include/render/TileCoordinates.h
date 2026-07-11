@@ -11,6 +11,7 @@ namespace TileMeshConfig {
     constexpr float kWallHeight = 2.5f;
     constexpr float kDoorHeight = 2.0f;
     constexpr float kDoorPillarRatio = 0.18f;
+    constexpr float kCeilingThickness = 0.12f;
 }
 
 glm::vec3 tileOrigin(world::TilePos pos, float tileSize);

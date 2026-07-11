@@ -31,11 +31,7 @@ TileMap DungeonLayoutBuilder::build(Dungeon& dungeon, const LayoutConfig& config
         if (!carveCorridors(dungeon, tileMap)) {
             continue;
         }
-        for (const Room& room : dungeon.rooms()) {
-            for (const DoorPlacement& door : room.doorPlacements()) {
-                tileMap.set(door.tilePos, TileType::Door);
-            }
-        }
+        sealRoomsAndCorridorWalls(dungeon, tileMap);
         if (validateTileMap(dungeon, tileMap)) {
             return tileMap;
         }
@@ -47,11 +43,7 @@ TileMap DungeonLayoutBuilder::build(Dungeon& dungeon, const LayoutConfig& config
     placeRooms(dungeon, tileMap);
     placeDoors(dungeon, tileMap);
     carveCorridors(dungeon, tileMap);
-    for (const Room& room : dungeon.rooms()) {
-        for (const DoorPlacement& door : room.doorPlacements()) {
-            tileMap.set(door.tilePos, TileType::Door);
-        }
-    }
+    sealRoomsAndCorridorWalls(dungeon, tileMap);
     return tileMap;
 }
 
@@ -276,6 +268,18 @@ bool DungeonLayoutBuilder::carveCorridors(Dungeon& dungeon, TileMap& tileMap) {
         }
     }
     return true;
+}
+
+void DungeonLayoutBuilder::sealRoomsAndCorridorWalls(Dungeon& dungeon, TileMap& tileMap) {
+    for (const Room& room : dungeon.rooms()) {
+        tileMap.restoreWallRing(room.bounds());
+    }
+    for (const Room& room : dungeon.rooms()) {
+        for (const DoorPlacement& door : room.doorPlacements()) {
+            tileMap.set(door.tilePos, TileType::Door);
+        }
+    }
+    tileMap.carveCorridorEdgeWalls();
 }
 
 bool DungeonLayoutBuilder::validateTileMap(const Dungeon& dungeon, const TileMap& tileMap) const {

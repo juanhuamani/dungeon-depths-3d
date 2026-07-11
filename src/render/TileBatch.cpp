@@ -3,6 +3,7 @@
 #include "render/MeshBuilder.h"
 #include "render/TileColors.h"
 #include "render/TileCoordinates.h"
+#include "world/DungeonTypes.h"
 
 namespace render {
 
@@ -23,6 +24,19 @@ void addFloorSlab(std::vector<TileVertex>& vertices,
         color);
 }
 
+void addCeilingSlab(std::vector<TileVertex>& vertices,
+                    std::vector<GLuint>& indices,
+                    const glm::vec3& origin,
+                    float tileSize,
+                    const glm::vec4& color) {
+    addAxisAlignedBox(
+        vertices,
+        indices,
+        origin + glm::vec3(0.0f, kWallHeight, 0.0f),
+        origin + glm::vec3(tileSize, kWallHeight + kCeilingThickness, tileSize),
+        color);
+}
+
 void addWallBlock(std::vector<TileVertex>& vertices,
                   std::vector<GLuint>& indices,
                   const glm::vec3& origin,
@@ -36,29 +50,61 @@ void addWallBlock(std::vector<TileVertex>& vertices,
         color);
 }
 
+/** true = opening along N/S (pillars on ±X); false = opening along E/W (pillars on ±Z). */
+bool doorOpeningAlongNorthSouth(const world::TileMap& tileMap, world::TilePos pos) {
+    const bool walkNS =
+        world::isWalkable(tileMap.at({pos.row - 1, pos.col}))
+        || world::isWalkable(tileMap.at({pos.row + 1, pos.col}));
+    const bool walkEW =
+        world::isWalkable(tileMap.at({pos.row, pos.col - 1}))
+        || world::isWalkable(tileMap.at({pos.row, pos.col + 1}));
+
+    if (walkEW && !walkNS) {
+        return false;
+    }
+    return true;
+}
+
 void addDoorFrame(std::vector<TileVertex>& vertices,
                   std::vector<GLuint>& indices,
                   const glm::vec3& origin,
                   float tileSize,
-                  const glm::vec4& color) {
+                  const glm::vec4& color,
+                  bool openingAlongNorthSouth) {
     const float pillar = tileSize * kDoorPillarRatio;
     const float yBase = kFloorHeight;
 
     addFloorSlab(vertices, indices, origin, tileSize, color);
 
-    addAxisAlignedBox(
-        vertices,
-        indices,
-        origin + glm::vec3(0.0f, yBase, 0.0f),
-        origin + glm::vec3(pillar, kDoorHeight, tileSize),
-        color);
+    if (openingAlongNorthSouth) {
+        addAxisAlignedBox(
+            vertices,
+            indices,
+            origin + glm::vec3(0.0f, yBase, 0.0f),
+            origin + glm::vec3(pillar, kDoorHeight, tileSize),
+            color);
 
-    addAxisAlignedBox(
-        vertices,
-        indices,
-        origin + glm::vec3(tileSize - pillar, yBase, 0.0f),
-        origin + glm::vec3(tileSize, kDoorHeight, tileSize),
-        color);
+        addAxisAlignedBox(
+            vertices,
+            indices,
+            origin + glm::vec3(tileSize - pillar, yBase, 0.0f),
+            origin + glm::vec3(tileSize, kDoorHeight, tileSize),
+            color);
+    } else {
+        addAxisAlignedBox(
+            vertices,
+            indices,
+            origin + glm::vec3(0.0f, yBase, 0.0f),
+            origin + glm::vec3(tileSize, kDoorHeight, pillar),
+            color);
+
+        addAxisAlignedBox(
+            vertices,
+            indices,
+            origin + glm::vec3(0.0f, yBase, tileSize - pillar),
+            origin + glm::vec3(tileSize, kDoorHeight, tileSize),
+            color);
+    }
 
     addAxisAlignedBox(
         vertices,
@@ -68,11 +114,17 @@ void addDoorFrame(std::vector<TileVertex>& vertices,
         color);
 }
 
+glm::vec4 darkened(const glm::vec4& color, float factor) {
+    return {color.r * factor, color.g * factor, color.b * factor, color.a};
+}
+
 void buildTileGeometry(std::vector<TileVertex>& vertices,
                        std::vector<GLuint>& indices,
-                       world::TileType type,
+                       const world::TileMap& tileMap,
+                       world::TilePos pos,
                        const glm::vec3& origin,
                        float tileSize) {
+    const world::TileType type = tileMap.at(pos);
     const glm::vec4 color = colorForTileType(type);
 
     switch (type) {
@@ -84,14 +136,23 @@ void buildTileGeometry(std::vector<TileVertex>& vertices,
         case world::TileType::Enemy:
         case world::TileType::Key:
             addFloorSlab(vertices, indices, origin, tileSize, color);
+            addCeilingSlab(vertices, indices, origin, tileSize, darkened(color, 0.7f));
             break;
-        case world::TileType::Wall:
-            addFloorSlab(vertices, indices, origin, tileSize,
-                         glm::vec4(color.r * 0.6f, color.g * 0.6f, color.b * 0.6f, 1.0f));
-            addWallBlock(vertices, indices, origin, tileSize, color);
+        case world::TileType::Wall: {
+            const glm::vec4 wallColor = wallColorForNeighbors(tileMap, pos);
+            addFloorSlab(vertices, indices, origin, tileSize, darkened(wallColor, 0.6f));
+            addWallBlock(vertices, indices, origin, tileSize, wallColor);
             break;
+        }
         case world::TileType::Door:
-            addDoorFrame(vertices, indices, origin, tileSize, color);
+            addDoorFrame(
+                vertices,
+                indices,
+                origin,
+                tileSize,
+                color,
+                doorOpeningAlongNorthSouth(tileMap, pos));
+            addCeilingSlab(vertices, indices, origin, tileSize, darkened(color, 0.7f));
             break;
         default:
             break;
@@ -128,13 +189,14 @@ void TileBatch::buildFromTileMap(const world::TileMap& tileMap, float tileSize) 
 
     for (int row = 0; row < tileMap.rows(); ++row) {
         for (int col = 0; col < tileMap.cols(); ++col) {
-            const world::TileType type = tileMap.at({row, col});
+            const world::TilePos pos{row, col};
+            const world::TileType type = tileMap.at(pos);
             if (type == world::TileType::Empty) {
                 continue;
             }
 
-            const glm::vec3 origin = tileOrigin({row, col}, tileSize);
-            buildTileGeometry(vertices_, indices_, type, origin, tileSize);
+            const glm::vec3 origin = tileOrigin(pos, tileSize);
+            buildTileGeometry(vertices_, indices_, tileMap, pos, origin, tileSize);
         }
     }
 

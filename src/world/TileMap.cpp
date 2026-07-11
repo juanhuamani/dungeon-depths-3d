@@ -128,6 +128,49 @@ void TileMap::carveWallRing(const TileRect& rect) {
     }
 }
 
+void TileMap::restoreWallRing(const TileRect& rect) {
+    const int top = rect.row - 1;
+    const int bottom = rect.row + rect.height;
+    const int left = rect.col - 1;
+    const int right = rect.col + rect.width;
+
+    auto forceWall = [this](TilePos pos) {
+        if (!isInBounds(pos) || isRoomInterior(at(pos))) {
+            return;
+        }
+        set(pos, TileType::Wall);
+    };
+
+    for (int c = left; c <= right; ++c) {
+        forceWall({top, c});
+        forceWall({bottom, c});
+    }
+    for (int r = top; r <= bottom; ++r) {
+        forceWall({r, left});
+        forceWall({r, right});
+    }
+}
+
+void TileMap::carveCorridorEdgeWalls() {
+    std::vector<TilePos> toWall;
+    for (int r = 0; r < rows_; ++r) {
+        for (int c = 0; c < cols_; ++c) {
+            if (tiles_[static_cast<size_t>(r)][static_cast<size_t>(c)] != TileType::Corridor) {
+                continue;
+            }
+            for (const TilePos& dir : kCardinalDirs) {
+                TilePos neighbor{r + dir.row, c + dir.col};
+                if (isInBounds(neighbor) && at(neighbor) == TileType::Empty) {
+                    toWall.push_back(neighbor);
+                }
+            }
+        }
+    }
+    for (const TilePos& pos : toWall) {
+        set(pos, TileType::Wall);
+    }
+}
+
 bool TileMap::carveThickPoint(TilePos center, int width) {
     const int half = width / 2;
     for (int dr = -half; dr <= half; ++dr) {
