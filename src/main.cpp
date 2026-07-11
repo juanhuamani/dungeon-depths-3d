@@ -109,6 +109,7 @@ int main(int argc, char* argv[]) {
         std::cout << "  Click izq - Espada" << std::endl;
         std::cout << "  Click der - Ballesta" << std::endl;
         std::cout << "  V         - 1ra/3ra persona" << std::endl;
+        std::cout << "  M         - Mostrar/Ocultar Minimapa" << std::endl;
         std::cout << "  ESC       - Salir" << std::endl;
 
         game::Game game;
@@ -126,6 +127,7 @@ int main(int argc, char* argv[]) {
         player.resetForNewLevel(spawnPos);
 
         float lastFrame = static_cast<float>(glfwGetTime());
+        bool showMinimap = true;
 
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
@@ -139,6 +141,9 @@ int main(int argc, char* argv[]) {
 
             if (InputManager::isKeyPressed(GLFW_KEY_V))
                 camera.toggleMode();
+
+            if (InputManager::isKeyPressed(GLFW_KEY_M))
+                showMinimap = !showMinimap;
 
             float mouseDX, mouseDY;
             InputManager::getMouseDelta(mouseDX, mouseDY);
@@ -190,6 +195,17 @@ int main(int argc, char* argv[]) {
                     static_cast<float>(framebufferHeight),
                     20.0f,
                     glm::vec3(1.0f, 1.0f, 1.0f)
+                );
+            }
+
+            if (showMinimap) {
+                debugRenderer.drawMinimap(
+                    static_cast<float>(framebufferWidth),
+                    static_cast<float>(framebufferHeight),
+                    game.level().tileMap(),
+                    player.transform.position,
+                    player.getYaw(),
+                    game.getTileSize()
                 );
             }
 

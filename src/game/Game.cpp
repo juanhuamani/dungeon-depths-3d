@@ -28,15 +28,18 @@ bool Game::init(int viewportWidth, int viewportHeight,
     }
 
     world::GeneratorConfig generatorConfig;
-    generatorConfig.rows = 12;
-    generatorConfig.cols = 16;
-    generatorConfig.mainPathMinLength = 6;
-    generatorConfig.mainPathMaxLength = 10;
-    generatorConfig.maxBranchLength = 3;
+    generatorConfig.rows = 16;
+    generatorConfig.cols = 20;
+    generatorConfig.mainPathMinLength = 8;
+    generatorConfig.mainPathMaxLength = 12;
+    generatorConfig.maxBranchLength = 4;
     generatorConfig.seed = 0;
 
     world::LayoutConfig layoutConfig;
+    layoutConfig.minRoomSize = 6;
+    layoutConfig.maxRoomSize = 12;
     layoutConfig.corridorWidth = 3;
+    layoutConfig.roomPadding = 5;
     layoutConfig.seed = 0;
 
     level_.generate(generatorConfig, layoutConfig);
