@@ -3,9 +3,10 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
-PlayerController::PlayerController(Player& player, Camera& camera)
+PlayerController::PlayerController(Player& player, Camera& camera, ProjectileManager& projectileManager)
     : m_player(player)
     , m_camera(camera)
+    , m_projectiles(projectileManager)
 {
 }
 
@@ -29,6 +30,8 @@ void PlayerController::handleMouseMovement(float xOffset, float yOffset)
 
 void PlayerController::handleMovement(float deltaTime)
 {
+    deltaTime = std::min(deltaTime, 0.05f);
+
     glm::vec3 forward = m_camera.getForward();
     glm::vec3 right = m_camera.getRight();
 
@@ -62,7 +65,11 @@ void PlayerController::handleAttacks()
         if (m_player.attackRanged())
         {
             m_shotFired = true;
-            m_shootDir = m_camera.getLookDirection();
+            glm::vec3 dir = m_camera.getLookDirection();
+
+            glm::vec3 origin = m_player.transform.position;
+            origin.y += 1.2f;
+            m_projectiles.shoot(origin, dir);
         }
     }
 }

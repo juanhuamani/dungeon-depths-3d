@@ -25,6 +25,9 @@ bool isWalkable(TileType type) {
         case TileType::Door:
         case TileType::Entrance:
         case TileType::Exit:
+        case TileType::Treasure:
+        case TileType::Enemy:
+        case TileType::Key:
             return true;
         default:
             return false;

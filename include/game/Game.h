@@ -27,6 +27,7 @@ public:
 
     glm::vec3 getPlayerSpawnPosition() const;
     bool isWalkable(const glm::vec3& worldPos) const;
+    bool isExitTile(const glm::vec3& worldPos) const;
     glm::vec3 resolveWallCollision(const glm::vec3& position, const glm::vec3& halfSize) const;
     float getTileSize() const { return tileSize_; }
 

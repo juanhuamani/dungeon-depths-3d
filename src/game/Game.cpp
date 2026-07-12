@@ -158,9 +158,15 @@ bool Game::isWalkable(const glm::vec3& worldPos) const {
     return !isTileSolid(worldToTile(worldPos));
 }
 
+bool Game::isExitTile(const glm::vec3& worldPos) const {
+    world::TilePos pos = worldToTile(worldPos);
+    if (!level_.tileMap().isInBounds(pos)) return false;
+    return level_.tileMap().at(pos) == world::TileType::Exit;
+}
+
 glm::vec3 Game::resolveWallCollision(const glm::vec3& position, const glm::vec3& halfSize) const {
     glm::vec3 resolved = position;
-    const float pad = 0.05f;
+    static constexpr float PAD = 0.05f;
 
     float rightEdge = resolved.x + halfSize.x;
     float leftEdge = resolved.x - halfSize.x;
@@ -176,7 +182,7 @@ glm::vec3 Game::resolveWallCollision(const glm::vec3& position, const glm::vec3&
         checkSolid(rightEdge, frontEdge)) {
         int tileCol = static_cast<int>(std::floor(rightEdge / tileSize_));
         float wallLeft = static_cast<float>(tileCol) * tileSize_;
-        resolved.x = wallLeft - halfSize.x - pad;
+        resolved.x = wallLeft - halfSize.x - PAD;
     }
 
     leftEdge = resolved.x - halfSize.x;
@@ -185,7 +191,7 @@ glm::vec3 Game::resolveWallCollision(const glm::vec3& position, const glm::vec3&
         checkSolid(leftEdge, resolved.z + halfSize.z)) {
         int tileCol = static_cast<int>(std::floor(leftEdge / tileSize_));
         float wallRight = (static_cast<float>(tileCol) + 1.0f) * tileSize_;
-        resolved.x = wallRight + halfSize.x + pad;
+        resolved.x = wallRight + halfSize.x + PAD;
     }
 
     rightEdge = resolved.x + halfSize.x;
@@ -196,7 +202,7 @@ glm::vec3 Game::resolveWallCollision(const glm::vec3& position, const glm::vec3&
         checkSolid(rightEdge, frontEdge)) {
         int tileRow = static_cast<int>(std::floor(frontEdge / tileSize_));
         float wallBack = static_cast<float>(tileRow) * tileSize_;
-        resolved.z = wallBack - halfSize.z - pad;
+        resolved.z = wallBack - halfSize.z - PAD;
     }
 
     frontEdge = resolved.z + halfSize.z;
@@ -206,7 +212,7 @@ glm::vec3 Game::resolveWallCollision(const glm::vec3& position, const glm::vec3&
         checkSolid(rightEdge, backEdge)) {
         int tileRow = static_cast<int>(std::floor(backEdge / tileSize_));
         float wallFront = (static_cast<float>(tileRow) + 1.0f) * tileSize_;
-        resolved.z = wallFront + halfSize.z + pad;
+        resolved.z = wallFront + halfSize.z + PAD;
     }
 
     return resolved;
