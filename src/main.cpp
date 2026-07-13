@@ -243,7 +243,7 @@ int main(int argc, char* argv[]) {
             lastViewProjection = projection * view;
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            game.renderWithViewProjection(lastViewProjection);
+            game.renderWithViewProjection(lastViewProjection, camera.getCameraPosition(player.transform.position));
 
             debugRenderer.setViewProjection(view, projection);
 

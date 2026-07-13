@@ -12,10 +12,16 @@ void addFace(std::vector<TileVertex>& vertices,
              const glm::vec3& d,
              const glm::vec4& color) {
     const GLuint base = static_cast<GLuint>(vertices.size());
-    vertices.push_back({a, color});
-    vertices.push_back({b, color});
-    vertices.push_back({c, color});
-    vertices.push_back({d, color});
+    
+    // Calculate normal (assuming counter-clockwise winding a->b->c)
+    glm::vec3 u = b - a;
+    glm::vec3 v = c - a;
+    glm::vec3 normal = glm::normalize(glm::cross(u, v));
+    
+    vertices.push_back({a, normal, glm::vec2(0.0f, 0.0f), color});
+    vertices.push_back({b, normal, glm::vec2(1.0f, 0.0f), color});
+    vertices.push_back({c, normal, glm::vec2(1.0f, 1.0f), color});
+    vertices.push_back({d, normal, glm::vec2(0.0f, 1.0f), color});
 
     indices.push_back(base + 0);
     indices.push_back(base + 1);

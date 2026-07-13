@@ -18,8 +18,8 @@ public:
               const std::string& fragmentShaderPath);
     void shutdown();
     void update(float deltaTime, GLFWwindow* window);
-    void render(int viewportWidth, int viewportHeight) const;
-    void renderWithViewProjection(const glm::mat4& viewProjection) const;
+    void render(int viewportWidth, int viewportHeight, const glm::vec3& viewPos = glm::vec3(0.0f)) const;
+    void renderWithViewProjection(const glm::mat4& viewProjection, const glm::vec3& viewPos) const;
     void onFramebufferResize(int width, int height);
 
     render::MapCamera& mapCamera() { return mapCamera_; }
@@ -37,10 +37,12 @@ private:
     void processViewModeInput(GLFWwindow* window);
     world::TilePos worldToTile(const glm::vec3& worldPos) const;
     bool isTileSolid(world::TilePos pos) const;
+    void extractLights();
 
     Level level_;
     render::TileRenderer tileRenderer_;
     render::MapCamera mapCamera_;
+    std::shared_ptr<render::Texture2D> tileTexture_;
 
     int viewportWidth_ = 1280;
     int viewportHeight_ = 720;
