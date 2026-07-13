@@ -13,13 +13,18 @@ public:
     bool hasDiscoveredHealth() const { return m_discoveredHealth; }
     bool hasDiscoveredEnergy() const { return m_discoveredEnergy; }
 
-    void resetForNewLevel() {}
+    bool hasGoldenKey() const { return m_hasGoldenKey; }
+    void addGoldenKey() { m_hasGoldenKey = true; }
+
+    void resetForNewLevel() { m_hasGoldenKey = false; }
     void resetAll()              { m_healthPotions = 0; m_energyPotions = 0;
-                                   m_discoveredHealth = false; m_discoveredEnergy = false; }
+                                   m_discoveredHealth = false; m_discoveredEnergy = false;
+                                   m_hasGoldenKey = false; }
 
 private:
     int  m_healthPotions = 0;
     int  m_energyPotions = 0;
     bool m_discoveredHealth = false;
     bool m_discoveredEnergy = false;
+    bool m_hasGoldenKey = false;
 };

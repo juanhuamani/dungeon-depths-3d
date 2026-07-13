@@ -4,6 +4,7 @@
 #include "render/MapCamera.h"
 #include "render/TileRenderer.h"
 #include "render/TileCoordinates.h"
+#include "render/ShadowMap.h"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -18,6 +19,7 @@ public:
               const std::string& fragmentShaderPath);
     void shutdown();
     void update(float deltaTime, GLFWwindow* window);
+    void renderShadowPass(const glm::vec3& targetPos);
     void render(int viewportWidth, int viewportHeight, const glm::vec3& viewPos = glm::vec3(0.0f)) const;
     void renderWithViewProjection(const glm::mat4& viewProjection, const glm::vec3& viewPos) const;
     void onFramebufferResize(int width, int height);
@@ -43,6 +45,8 @@ private:
     render::TileRenderer tileRenderer_;
     render::MapCamera mapCamera_;
     std::shared_ptr<render::Texture2D> tileTexture_;
+    render::ShadowMap shadowMap_;
+    glm::mat4 lightSpaceMatrix_{1.0f};
 
     int viewportWidth_ = 1280;
     int viewportHeight_ = 720;

@@ -30,10 +30,15 @@ void ItemManager::spawnFromDungeon(const world::Dungeon& dungeon, float tileSize
         );
 
         ItemType content = ItemType::HEALTH_POTION;
-        if (room.type() == world::RoomType::Treasure)
+        if (room.type() == world::RoomType::Treasure) {
             content = ItemType::ENERGY_POTION;
+        }
 
         spawnItem(corner, content);
+    }
+    
+    if (!m_items.empty()) {
+        m_items.back().setContainedItem(ItemType::GOLDEN_KEY);
     }
 }
 
@@ -60,6 +65,8 @@ void ItemManager::openChest(Player& player, Item* chest)
         player.getInventory().addHealthPotion();
     else if (reward == ItemType::ENERGY_POTION)
         player.getInventory().addEnergyPotion();
+    else if (reward == ItemType::GOLDEN_KEY)
+        player.getInventory().addGoldenKey();
 
     chest->setActive(false);
 }

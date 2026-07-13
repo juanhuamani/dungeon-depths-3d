@@ -1,6 +1,7 @@
 #include "game/Game.h"
 
 #include "render/TileCoordinates.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <algorithm>
 #include <iostream>
@@ -56,9 +57,32 @@ bool Game::init(int viewportWidth, int viewportHeight,
     tileRenderer_.setTileMap(level_.tileMap());
     centerCameraOnLevel();
     extractLights();
+    
+    if (!shadowMap_.init(2048, 2048)) {
+        std::cerr << "Warning: Could not init ShadowMap\n";
+    }
 
     initialized_ = true;
     return true;
+}
+
+void Game::renderShadowPass(const glm::vec3& targetPos) {
+    if (!initialized_) return;
+
+    glm::vec3 lightDir = glm::normalize(glm::vec3(-0.2f, -1.0f, -0.3f));
+    glm::vec3 lightPos = targetPos - lightDir * 20.0f;
+    glm::mat4 lightProjection = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 40.0f);
+    glm::mat4 lightView = glm::lookAt(lightPos, targetPos, glm::vec3(0.0f, 1.0f, 0.0f));
+    lightSpaceMatrix_ = lightProjection * lightView;
+
+    tileRenderer_.setDirLight({lightDir, glm::vec3(0.8f, 0.8f, 0.8f)});
+
+    shadowMap_.bindForWriting();
+    tileRenderer_.renderShadow(lightSpaceMatrix_);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, viewportWidth_, viewportHeight_);
+
+    tileRenderer_.setShadowMap(shadowMap_.getDepthTexture(), lightSpaceMatrix_);
 }
 
 void Game::extractLights() {
