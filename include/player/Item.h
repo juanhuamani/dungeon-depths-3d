@@ -14,6 +14,7 @@ public:
     const glm::vec3& getPosition() const { return m_position; }
     ItemType getType() const { return m_type; }
     ItemType getContainedItem() const { return m_containedItem; }
+    void setContainedItem(ItemType type) { m_containedItem = type; }
     const AABB& getCollider() const { return m_collider; }
 
     static constexpr glm::vec3 HALF_SIZE{0.3f, 0.3f, 0.3f};

@@ -10,12 +10,11 @@
 
 bool InventoryUI::init()
 {
-    if (!m_shader.loadFromFiles("assets/shaders/ui.vert", "assets/shaders/ui.frag"))
+    if (!m_batch.init())
     {
-        std::cerr << "InventoryUI: Error cargando shaders\n";
+        std::cerr << "InventoryUI: Error init UIBatch\n";
         return false;
     }
-    setupVAO();
 
     const char* abc = "abcdefghijklmnopqrstuvwxyz";
     for (int i = 0; i < 26; ++i)
@@ -76,24 +75,8 @@ void InventoryUI::cleanup()
     del(m_keyIcon); del(m_coinIcon); del(m_chestIcon);
     del(m_progressBarGreen); del(m_progressBarRed); del(m_effectYellow);
     del(m_heartFull); del(m_heartHalf); del(m_heartEmpty);
-    if (m_vao) glDeleteVertexArrays(1, &m_vao);
-    if (m_vbo) glDeleteBuffers(1, &m_vbo);
-    m_shader.destroy();
-}
-
-void InventoryUI::setupVAO()
-{
-    struct V { float x, y, u, v; };
-    glGenVertexArrays(1, &m_vao);
-    glGenBuffers(1, &m_vbo);
-    glBindVertexArray(m_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(V) * 6, nullptr, GL_DYNAMIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(V), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(V), (void*)(2 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-    glBindVertexArray(0);
+    
+    m_batch.shutdown();
 }
 
 GLuint InventoryUI::loadTexture(const std::string& path)
@@ -116,38 +99,13 @@ GLuint InventoryUI::loadTexture(const std::string& path)
 
 void InventoryUI::drawQuad(float x, float y, float w, float h, const glm::vec4& c)
 {
-    float x2 = x + w, y2 = y + h;
-    struct { float x, y, u, v; } v[6] = {
-        {x, y, 0, 0}, {x2, y, 0, 0}, {x2, y2, 0, 0},
-        {x, y, 0, 0}, {x2, y2, 0, 0}, {x, y2, 0, 0}
-    };
-    m_shader.setInt("uUseTexture", 0);
-    m_shader.setVec4("uColor", c);
-    glBindVertexArray(m_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(v), v);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    glBindVertexArray(0);
+    m_batch.draw(x, y, w, h, 0, c);
 }
 
 void InventoryUI::drawTex(float x, float y, float w, float h, GLuint tex, const glm::vec4& tint)
 {
     if (!tex) { drawQuad(x, y, w, h, glm::vec4(0.5f, 0.0f, 0.0f, 1.0f)); return; }
-    float x2 = x + w, y2 = y + h;
-    struct { float x, y, u, v; } v[6] = {
-        {x, y, 0, 0}, {x2, y, 1, 0}, {x2, y2, 1, 1},
-        {x, y, 0, 0}, {x2, y2, 1, 1}, {x, y2, 0, 1}
-    };
-    m_shader.setInt("uUseTexture", 1);
-    m_shader.setVec4("uColor", tint);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, tex);
-    m_shader.setInt("uTexture", 0);
-    glBindVertexArray(m_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(v), v);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    glBindVertexArray(0);
+    m_batch.draw(x, y, w, h, tex, tint);
 }
 
 void InventoryUI::drawStr(const std::string& text, float x, float y, float s, const glm::vec4& tint)
@@ -174,12 +132,13 @@ void InventoryUI::render(int w, int h, const Player& p, const Item* chest,
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    m_shader.use();
-    m_shader.setMat4("projection",
-        glm::ortho(0.0f, (float)w, (float)h, 0.0f, -1.0f, 1.0f));
+    
+    m_batch.begin(glm::ortho(0.0f, (float)w, (float)h, 0.0f, -1.0f, 1.0f));
 
     if (showInv) renderModal(w, h, p, sel, cx, cy, clicked);
     else renderHUD(w, h, p, chest);
+
+    m_batch.end();
 
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);

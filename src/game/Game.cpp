@@ -1,6 +1,7 @@
 #include "game/Game.h"
 
 #include "render/TileCoordinates.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <algorithm>
 #include <iostream>
@@ -26,6 +27,13 @@ bool Game::init(int viewportWidth, int viewportHeight,
         std::cerr << "Error: no se pudo inicializar TileRenderer\n";
         return false;
     }
+    
+    tileTexture_ = std::make_shared<render::Texture2D>();
+    if (tileTexture_->load("assets/textures/stone.png")) {
+        tileRenderer_.setTexture(tileTexture_);
+    } else {
+        std::cerr << "Warning: Could not load assets/textures/stone.png\n";
+    }
 
     world::GeneratorConfig generatorConfig;
     generatorConfig.rows = 16;
@@ -48,9 +56,48 @@ bool Game::init(int viewportWidth, int viewportHeight,
     tileRenderer_.setTileSize(tileSize_);
     tileRenderer_.setTileMap(level_.tileMap());
     centerCameraOnLevel();
+    extractLights();
+    
+    if (!shadowMap_.init(2048, 2048)) {
+        std::cerr << "Warning: Could not init ShadowMap\n";
+    }
 
     initialized_ = true;
     return true;
+}
+
+void Game::renderShadowPass(const glm::vec3& targetPos) {
+    if (!initialized_) return;
+
+    glm::vec3 lightDir = glm::normalize(glm::vec3(-0.2f, -1.0f, -0.3f));
+    glm::vec3 lightPos = targetPos - lightDir * 20.0f;
+    glm::mat4 lightProjection = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 40.0f);
+    glm::mat4 lightView = glm::lookAt(lightPos, targetPos, glm::vec3(0.0f, 1.0f, 0.0f));
+    lightSpaceMatrix_ = lightProjection * lightView;
+
+    tileRenderer_.setDirLight({lightDir, glm::vec3(0.8f, 0.8f, 0.8f)});
+
+    shadowMap_.bindForWriting();
+    tileRenderer_.renderShadow(lightSpaceMatrix_);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, viewportWidth_, viewportHeight_);
+
+    tileRenderer_.setShadowMap(shadowMap_.getDepthTexture(), lightSpaceMatrix_);
+}
+
+void Game::extractLights() {
+    std::vector<render::TileRenderer::PointLight> lights;
+    for (const auto& room : level_.dungeon().rooms()) {
+        glm::vec2 centerXZ = render::tileRectCenterXZ(room.bounds(), tileSize_);
+        glm::vec3 pos(centerXZ.x, render::TileMeshConfig::kWallHeight - 0.2f, centerXZ.y);
+        
+        glm::vec3 color(1.0f, 0.8f, 0.6f);
+        if (room.isEntrance()) color = glm::vec3(0.6f, 1.0f, 0.6f);
+        if (room.isExit()) color = glm::vec3(1.0f, 0.5f, 0.5f);
+        
+        lights.push_back({pos, color});
+    }
+    tileRenderer_.setLights(lights);
 }
 
 void Game::shutdown() {
@@ -102,19 +149,19 @@ void Game::update(float deltaTime, GLFWwindow* window) {
     processViewModeInput(window);
 }
 
-void Game::render(int viewportWidth, int viewportHeight) const {
+void Game::render(int viewportWidth, int viewportHeight, const glm::vec3& viewPos) const {
     if (!initialized_) return;
 
     const glm::mat4 viewProjection = mapCamera_.viewProjection(
         static_cast<float>(viewportWidth),
         static_cast<float>(viewportHeight));
 
-    tileRenderer_.render(viewProjection);
+    tileRenderer_.render(viewProjection, viewPos);
 }
 
-void Game::renderWithViewProjection(const glm::mat4& viewProjection) const {
+void Game::renderWithViewProjection(const glm::mat4& viewProjection, const glm::vec3& viewPos) const {
     if (!initialized_) return;
-    tileRenderer_.render(viewProjection);
+    tileRenderer_.render(viewProjection, viewPos);
 }
 
 glm::vec3 Game::getPlayerSpawnPosition() const {

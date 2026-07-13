@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine/ShaderProgram.h"
+#include "ui/UIBatch.h"
 #include "engine/ItemType.h"
 #include <glad/gl.h>
 #include <glm/glm.hpp>
@@ -18,8 +18,7 @@ public:
     void cleanup();
 
 private:
-    ShaderProgram m_shader;
-    GLuint m_vao = 0, m_vbo = 0;
+    UIBatch m_batch;
 
     GLuint m_abcedario[26]{};
     GLuint m_slotBlue = 0, m_slotBlack = 0;
@@ -43,7 +42,6 @@ private:
     int m_itemCount = 0;
 
     GLuint loadTexture(const std::string& path);
-    void setupVAO();
     void drawQuad(float x, float y, float w, float h, const glm::vec4& color);
     void drawTex(float x, float y, float w, float h, GLuint tex, const glm::vec4& tint = glm::vec4(1.0f));
     void drawStr(const std::string& text, float x, float y, float letterSize, const glm::vec4& tint);

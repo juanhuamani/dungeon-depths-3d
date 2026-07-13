@@ -25,12 +25,17 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/vendor/glad/include
 )
 
+find_package(Threads REQUIRED)
+
 target_link_libraries(${PROJECT_NAME}
     OpenGL::GL
     glfw
     glm::glm
     glad
     stb_image
+    Threads::Threads
+    dl
+    m
 )
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD

@@ -13,6 +13,8 @@
 #include "player/ProjectileManager.h"
 #include "player/ItemManager.h"
 #include "ui/InventoryUI.h"
+#include "ui/MenuUI.h"
+#include "audio/AudioManager.h"
 
 #include <iostream>
 #include <cstdlib>
@@ -26,6 +28,8 @@ constexpr int WINDOW_HEIGHT = 720;
 constexpr const char* WINDOW_TITLE = "Dungeon Depths 3D";
 constexpr const char* TILE_VERT_SHADER = "assets/shaders/tile.vert";
 constexpr const char* TILE_FRAG_SHADER = "assets/shaders/tile.frag";
+
+enum class GameState { MENU, PLAYING, GAMEOVER, VICTORY };
 
 game::Game* g_game = nullptr;
 
@@ -109,6 +113,15 @@ int main(int argc, char* argv[]) {
         PlayerController playerController(player, camera, projectileManager);
         ItemManager itemManager;
         InventoryUI inventoryUI;
+        ui::MenuUI menuUI;
+        
+        audio::AudioManager audioManager;
+        if (audioManager.init()) {
+            audioManager.loadSound("shoot", "assets/sounds/shoot.wav");
+            audioManager.loadSound("pickup", "assets/sounds/pickup.wav");
+            audioManager.loadSound("hurt", "assets/sounds/hurt.wav");
+            audioManager.playMusic("assets/sounds/bgm.wav", true);
+        }
 
         std::cout << "=== Dungeon Depths 3D ===" << std::endl;
         std::cout << "  WASD      - Moverse" << std::endl;
@@ -140,6 +153,10 @@ int main(int argc, char* argv[]) {
             return EXIT_FAILURE;
         }
 
+        if (!menuUI.init()) {
+            std::cerr << "Warning: Could not init MenuUI\n";
+        }
+
         glm::vec3 spawnPos = game.getPlayerSpawnPosition();
         player.resetForNewLevel(spawnPos);
 
@@ -167,6 +184,10 @@ int main(int argc, char* argv[]) {
 
         glm::mat4 lastViewProjection(1.0f);
         Item* nearbyChest = nullptr;
+        
+        GameState currentState = GameState::MENU;
+        int menuSelection = 0; // 0 = Jugar, 1 = Salir
+        bool enterPressedLastFrame = false;
 
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
@@ -178,7 +199,7 @@ int main(int argc, char* argv[]) {
 
             processInput(window);
 
-            if (InputManager::isKeyPressed(GLFW_KEY_I)) {
+            if (InputManager::isKeyPressed(GLFW_KEY_I) && currentState == GameState::PLAYING) {
                 showInventory = !showInventory;
                 glfwSetInputMode(window, GLFW_CURSOR,
                     showInventory ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
@@ -209,93 +230,150 @@ int main(int argc, char* argv[]) {
             float fcY = (float)cursorY * scaleY;
             bool mouseClicked = InputManager::isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT);
 
-            if (InputManager::isKeyPressed(GLFW_KEY_V))
-                camera.toggleMode();
-            if (InputManager::isKeyPressed(GLFW_KEY_M))
-                showMinimap = !showMinimap;
+            bool enterPressed = InputManager::isKeyPressed(GLFW_KEY_ENTER);
+            bool enterJustPressed = enterPressed && !enterPressedLastFrame;
+            enterPressedLastFrame = enterPressed;
 
-            float mouseDX, mouseDY;
-            InputManager::getMouseDelta(mouseDX, mouseDY);
-            if (!showInventory)
-                playerController.handleMouseMovement(mouseDX, mouseDY);
-
-            if (!showInventory) {
-                game.update(deltaTime, window);
-                playerController.handleInput(deltaTime);
-                player.update(deltaTime);
-                projectileManager.update(deltaTime);
-
-                glm::vec3 corrected = game.resolveWallCollision(
-                    player.transform.position, Player::HALF_SIZE);
-                player.transform.position = corrected;
-
-                nearbyChest = itemManager.findChestNear(
-                    player.transform.position, INTERACT_RANGE);
-                if (nearbyChest && InputManager::isKeyPressed(GLFW_KEY_E))
-                    itemManager.openChest(player, nearbyChest);
+            if (currentState == GameState::MENU) {
+                if (InputManager::isKeyPressed(GLFW_KEY_DOWN)) {
+                    menuSelection = 1;
+                } else if (InputManager::isKeyPressed(GLFW_KEY_UP)) {
+                    menuSelection = 0;
+                }
+                
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                menuUI.renderMainMenu(framebufferWidth, framebufferHeight, menuSelection);
+                if (enterJustPressed) {
+                    if (menuSelection == 0) {
+                        currentState = GameState::PLAYING;
+                        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                    } else {
+                        glfwSetWindowShouldClose(window, true);
+                    }
+                }
+            } 
+            else if (currentState == GameState::GAMEOVER || currentState == GameState::VICTORY) {
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                menuUI.renderGameOver(framebufferWidth, framebufferHeight, currentState == GameState::VICTORY);
+                if (enterJustPressed) {
+                    currentState = GameState::MENU;
+                    player.resetForNewLevel(game.getPlayerSpawnPosition());
+                    player.getInventory().resetAll();
+                    itemManager.spawnFromDungeon(game.level().dungeon(), game.getTileSize());
+                    showInventory = false;
+                    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                }
             }
+            else if (currentState == GameState::PLAYING) {
+                if (InputManager::isKeyPressed(GLFW_KEY_V))
+                    camera.toggleMode();
+                if (InputManager::isKeyPressed(GLFW_KEY_M))
+                    showMinimap = !showMinimap;
 
-            float aspectRatio = (float)framebufferWidth /
-                                (float)std::max(framebufferHeight, 1);
-            glm::mat4 view = camera.getViewMatrix(player.transform.position);
-            glm::mat4 projection = glm::perspective(
-                glm::radians(70.0f), aspectRatio, 0.1f, 200.0f);
-            lastViewProjection = projection * view;
+                float mouseDX, mouseDY;
+                InputManager::getMouseDelta(mouseDX, mouseDY);
+                if (!showInventory)
+                    playerController.handleMouseMovement(mouseDX, mouseDY);
 
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            game.renderWithViewProjection(lastViewProjection);
+                if (!showInventory) {
+                    game.update(deltaTime, window);
+                    playerController.handleInput(deltaTime);
+                    player.update(deltaTime);
+                    projectileManager.update(deltaTime);
 
-            debugRenderer.setViewProjection(view, projection);
+                    if (mouseClicked) {
+                        player.attackMelee();
+                        audioManager.playSound("shoot");
+                    }
 
-            for (const auto& proj : projectileManager.getProjectiles())
-            {
-                if (!proj.active) continue;
-                debugRenderer.drawCube(proj.transform.position,
-                    proj.transform.scale, glm::vec3(1.0f, 0.8f, 0.1f));
+                    glm::vec3 corrected = game.resolveWallCollision(
+                        player.transform.position, Player::HALF_SIZE);
+                    player.transform.position = corrected;
+
+                    nearbyChest = itemManager.findChestNear(
+                        player.transform.position, INTERACT_RANGE);
+                    if (nearbyChest && InputManager::isKeyPressed(GLFW_KEY_E)) {
+                        bool wasGolden = (nearbyChest->getContainedItem() == ItemType::GOLDEN_KEY);
+                        itemManager.openChest(player, nearbyChest);
+                        audioManager.playSound("pickup");
+                        if (wasGolden) {
+                            currentState = GameState::VICTORY;
+                        }
+                    }
+                    
+                    if (player.getHealth() <= 0) {
+                        currentState = GameState::GAMEOVER;
+                        audioManager.playSound("hurt");
+                    }
+                }
+
+                float aspectRatio = (float)framebufferWidth /
+                                    (float)std::max(framebufferHeight, 1);
+                glm::mat4 view = camera.getViewMatrix(player.transform.position);
+                glm::mat4 projection = glm::perspective(
+                    glm::radians(70.0f), aspectRatio, 0.1f, 200.0f);
+                lastViewProjection = projection * view;
+                
+                // Shadow pass
+                game.renderShadowPass(player.transform.position);
+
+                // Main pass
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                game.renderWithViewProjection(lastViewProjection, camera.getCameraPosition(player.transform.position));
+
+                debugRenderer.setViewProjection(view, projection);
+
+                for (const auto& proj : projectileManager.getProjectiles())
+                {
+                    if (!proj.active) continue;
+                    debugRenderer.drawCube(proj.transform.position,
+                        proj.transform.scale, glm::vec3(1.0f, 0.8f, 0.1f));
+                }
+
+                for (const auto& item : itemManager.getItems())
+                {
+                    if (!item.isActive()) continue;
+                    glm::vec3 color(0.85f, 0.65f, 0.15f);
+                    if (nearbyChest == &item)
+                        color = glm::vec3(1.0f, 0.9f, 0.2f);
+                    debugRenderer.drawCube(item.getPosition(), glm::vec3(0.6f), color);
+                }
+
+                if (camera.getMode() == CameraMode::THIRD_PERSON) {
+                    glm::vec3 playerColor(0.2f, 0.45f, 0.85f);
+                    if (player.isAttacking() && player.getCurrentAttack() == AttackType::MELEE)
+                        playerColor = glm::vec3(0.9f, 0.3f, 0.1f);
+                    debugRenderer.drawCube(player.transform.getModelMatrix(), playerColor);
+                }
+                if (player.isAttacking() && player.getCurrentAttack() == AttackType::MELEE) {
+                    AABB hitbox = player.getMeleeHitbox();
+                    glm::vec3 center = hitbox.getCenter();
+                    glm::vec3 size = hitbox.max - hitbox.min;
+                    debugRenderer.drawCube(center, size, glm::vec3(1.0f, 0.6f, 0.1f));
+                }
+                if (camera.getMode() == CameraMode::FIRST_PERSON) {
+                    debugRenderer.drawCrosshair(
+                        (float)framebufferWidth, (float)framebufferHeight,
+                        20.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+                }
+                if (showMinimap && !showInventory) {
+                    debugRenderer.drawMinimap(
+                        (float)framebufferWidth, (float)framebufferHeight,
+                        game.level().tileMap(), player.transform.position,
+                        player.getYaw(), game.getTileSize());
+                }
+
+                inventoryUI.render(framebufferWidth, framebufferHeight, player,
+                    showInventory ? nullptr : nearbyChest,
+                    showInventory, selectedItem, fcX, fcY,
+                    showInventory ? mouseClicked : false);
             }
-
-            for (const auto& item : itemManager.getItems())
-            {
-                if (!item.isActive()) continue;
-                glm::vec3 color(0.85f, 0.65f, 0.15f);
-                if (nearbyChest == &item)
-                    color = glm::vec3(1.0f, 0.9f, 0.2f);
-                debugRenderer.drawCube(item.getPosition(), glm::vec3(0.6f), color);
-            }
-
-            if (camera.getMode() == CameraMode::THIRD_PERSON) {
-                glm::vec3 playerColor(0.2f, 0.45f, 0.85f);
-                if (player.isAttacking() && player.getCurrentAttack() == AttackType::MELEE)
-                    playerColor = glm::vec3(0.9f, 0.3f, 0.1f);
-                debugRenderer.drawCube(player.transform.getModelMatrix(), playerColor);
-            }
-            if (player.isAttacking() && player.getCurrentAttack() == AttackType::MELEE) {
-                AABB hitbox = player.getMeleeHitbox();
-                glm::vec3 center = hitbox.getCenter();
-                glm::vec3 size = hitbox.max - hitbox.min;
-                debugRenderer.drawCube(center, size, glm::vec3(1.0f, 0.6f, 0.1f));
-            }
-            if (camera.getMode() == CameraMode::FIRST_PERSON) {
-                debugRenderer.drawCrosshair(
-                    (float)framebufferWidth, (float)framebufferHeight,
-                    20.0f, glm::vec3(1.0f, 1.0f, 1.0f));
-            }
-            if (showMinimap && !showInventory) {
-                debugRenderer.drawMinimap(
-                    (float)framebufferWidth, (float)framebufferHeight,
-                    game.level().tileMap(), player.transform.position,
-                    player.getYaw(), game.getTileSize());
-            }
-
-            inventoryUI.render(framebufferWidth, framebufferHeight, player,
-                showInventory ? nullptr : nearbyChest,
-                showInventory, selectedItem, fcX, fcY,
-                showInventory ? mouseClicked : false);
 
             glfwSwapBuffers(window);
         }
 
         g_game = nullptr;
+        menuUI.cleanup();
         inventoryUI.cleanup();
         game.shutdown();
         debugRenderer.cleanup();
