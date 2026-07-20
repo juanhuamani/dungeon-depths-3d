@@ -50,62 +50,17 @@ void addWallBlock(std::vector<TileVertex>& vertices,
         color);
 }
 
-/** true = opening along N/S (pillars on ±X); false = opening along E/W (pillars on ±Z). */
-bool doorOpeningAlongNorthSouth(const world::TileMap& tileMap, world::TilePos pos) {
-    const bool walkNS =
-        world::isWalkable(tileMap.at({pos.row - 1, pos.col}))
-        || world::isWalkable(tileMap.at({pos.row + 1, pos.col}));
-    const bool walkEW =
-        world::isWalkable(tileMap.at({pos.row, pos.col - 1}))
-        || world::isWalkable(tileMap.at({pos.row, pos.col + 1}));
 
-    if (walkEW && !walkNS) {
-        return false;
-    }
-    return true;
-}
 
 void addDoorFrame(std::vector<TileVertex>& vertices,
                   std::vector<GLuint>& indices,
                   const glm::vec3& origin,
                   float tileSize,
-                  const glm::vec4& color,
-                  bool openingAlongNorthSouth) {
-    const float pillar = tileSize * kDoorPillarRatio;
-    const float yBase = kFloorHeight;
-
+                  const glm::vec4& color) {
     addFloorSlab(vertices, indices, origin, tileSize, color);
 
-    if (openingAlongNorthSouth) {
-        addAxisAlignedBox(
-            vertices,
-            indices,
-            origin + glm::vec3(0.0f, yBase, 0.0f),
-            origin + glm::vec3(pillar, kDoorHeight, tileSize),
-            color);
-
-        addAxisAlignedBox(
-            vertices,
-            indices,
-            origin + glm::vec3(tileSize - pillar, yBase, 0.0f),
-            origin + glm::vec3(tileSize, kDoorHeight, tileSize),
-            color);
-    } else {
-        addAxisAlignedBox(
-            vertices,
-            indices,
-            origin + glm::vec3(0.0f, yBase, 0.0f),
-            origin + glm::vec3(tileSize, kDoorHeight, pillar),
-            color);
-
-        addAxisAlignedBox(
-            vertices,
-            indices,
-            origin + glm::vec3(0.0f, yBase, tileSize - pillar),
-            origin + glm::vec3(tileSize, kDoorHeight, tileSize),
-            color);
-    }
-
+    // Añadimos solo el dintel (parte superior del marco) para formar un arco, 
+    // sin pilares laterales que estorben en puertas anchas.
     addAxisAlignedBox(
         vertices,
         indices,
@@ -150,8 +105,7 @@ void buildTileGeometry(std::vector<TileVertex>& vertices,
                 indices,
                 origin,
                 tileSize,
-                color,
-                doorOpeningAlongNorthSouth(tileMap, pos));
+                color);
             addCeilingSlab(vertices, indices, origin, tileSize, darkened(color, 0.7f));
             break;
         default:

@@ -24,6 +24,7 @@ public:
                      const glm::vec3& playerPos,
                      float playerYaw,
                      float tileSize);
+    void drawDamageFlash(float screenWidth, float screenHeight, float alpha);
 
 private:
     ShaderProgram m_shader;
