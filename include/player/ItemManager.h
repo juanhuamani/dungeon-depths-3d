@@ -10,6 +10,7 @@ class Player;
 class ItemManager {
 public:
     void spawnFromDungeon(const world::Dungeon& dungeon, float tileSize);
+    void spawnDrop(const glm::vec3& position);
     Item* findChestNear(const glm::vec3& position, float range);
     void openChest(Player& player, Item* chest);
     void resetForNewLevel();

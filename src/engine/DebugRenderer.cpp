@@ -396,3 +396,38 @@ void DebugRenderer::drawMinimap(float screenWidth, float screenHeight,
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
 }
+
+void DebugRenderer::drawDamageFlash(float screenWidth, float screenHeight, float alpha)
+{
+    if (alpha <= 0.0f) return;
+
+    glm::mat4 ortho = glm::ortho(0.0f, screenWidth, 0.0f, screenHeight);
+    
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDisable(GL_DEPTH_TEST);
+
+    m_crosshairShader.use();
+    m_crosshairShader.setMat4("projection", ortho);
+    m_crosshairShader.setVec4("uColor", glm::vec4(1.0f, 0.0f, 0.0f, alpha));
+    glUniform2f(glGetUniformLocation(m_crosshairShader.getID(), "uOffset"), 0.0f, 0.0f);
+
+    float vertices[] = {
+        0.0f, 0.0f,
+        screenWidth, 0.0f,
+        screenWidth, screenHeight,
+        0.0f, 0.0f,
+        screenWidth, screenHeight,
+        0.0f, screenHeight
+    };
+
+    glBindVertexArray(m_minimapVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, m_minimapVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
+    
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glBindVertexArray(0);
+    glEnable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+}

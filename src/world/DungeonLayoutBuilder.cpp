@@ -277,6 +277,15 @@ void DungeonLayoutBuilder::sealRoomsAndCorridorWalls(Dungeon& dungeon, TileMap& 
     for (const Room& room : dungeon.rooms()) {
         for (const DoorPlacement& door : room.doorPlacements()) {
             tileMap.set(door.tilePos, TileType::Door);
+            
+            // Expandir la puerta para que tenga el ancho de 2 tiles
+            if (door.direction == Direction::North || door.direction == Direction::South) {
+                if (tileMap.isInBounds({door.tilePos.row, door.tilePos.col + 1}))
+                    tileMap.set({door.tilePos.row, door.tilePos.col + 1}, TileType::Door);
+            } else { // Direction::East o Direction::West
+                if (tileMap.isInBounds({door.tilePos.row + 1, door.tilePos.col}))
+                    tileMap.set({door.tilePos.row + 1, door.tilePos.col}, TileType::Door);
+            }
         }
     }
     tileMap.carveCorridorEdgeWalls();

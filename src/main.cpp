@@ -15,7 +15,8 @@
 #include "ui/InventoryUI.h"
 #include "ui/MenuUI.h"
 #include "audio/AudioManager.h"
-
+#include "enemies/EnemyManager.h"
+#include "enemies/EnemyProjectileManager.h"
 #include <iostream>
 #include <cstdlib>
 #include <string>
@@ -145,6 +146,10 @@ int main(int argc, char* argv[]) {
             return EXIT_FAILURE;
         }
 
+        EnemyProjectileManager enemyProjManager;
+        EnemyManager enemyManager;
+        enemyManager.init(&game, &player, &enemyProjManager, &itemManager);
+
         if (!inventoryUI.init()) {
             g_game = nullptr;
             debugRenderer.cleanup();
@@ -160,7 +165,9 @@ int main(int argc, char* argv[]) {
         glm::vec3 spawnPos = game.getPlayerSpawnPosition();
         player.resetForNewLevel(spawnPos);
 
+        int currentLevelIndex = 1;
         itemManager.spawnFromDungeon(game.level().dungeon(), game.getTileSize());
+        enemyManager.spawnFromDungeon(game.level().dungeon(), currentLevelIndex, game.getTileSize());
 
         projectileManager.setWallCollisionCallback(
             [&](const AABB& collider, glm::vec3& outNormal, glm::vec3& outResolved) -> bool {
@@ -170,6 +177,36 @@ int main(int argc, char* argv[]) {
                     glm::vec3 diff = resolved - collider.getCenter();
                     if (std::abs(diff.x) > 0.001f) outNormal.x = (diff.x > 0) ? 1.0f : -1.0f;
                     if (std::abs(diff.z) > 0.001f) outNormal.z = (diff.z > 0) ? 1.0f : -1.0f;
+                    return true;
+                }
+                return false;
+            });
+            
+        projectileManager.setEnemyCollisionCallback(
+            [&](const AABB& collider) -> int {
+                for (auto& enemy : enemyManager.getEnemies()) {
+                    if (enemy->isAlive() && collider.intersects(enemy->collider)) {
+                        enemy->takeDamage(Player::RANGED_DAMAGE);
+                        return 1;
+                    }
+                }
+                return -1;
+            });
+
+        enemyProjManager.setWallCollisionCallback(
+            [&](const AABB& collider, glm::vec3& outNormal, glm::vec3& outResolved) -> bool {
+                glm::vec3 resolved = game.resolveWallCollision(collider.getCenter(), Projectile::HALF_SIZE);
+                if (resolved != collider.getCenter()) {
+                    outResolved = resolved;
+                    return true;
+                }
+                return false;
+            });
+            
+        enemyProjManager.setPlayerCollisionCallback(
+            [&](const AABB& collider) -> bool {
+                if (collider.intersects(player.collider)) {
+                    player.takeDamage(1); // Daño de proyectil enemigo
                     return true;
                 }
                 return false;
@@ -188,6 +225,8 @@ int main(int argc, char* argv[]) {
         GameState currentState = GameState::MENU;
         int menuSelection = 0; // 0 = Jugar, 1 = Salir
         bool enterPressedLastFrame = false;
+        
+        float damageFlashAlpha = 0.0f;
 
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
@@ -256,10 +295,14 @@ int main(int argc, char* argv[]) {
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
                 menuUI.renderGameOver(framebufferWidth, framebufferHeight, currentState == GameState::VICTORY);
                 if (enterJustPressed) {
+                    if (currentState == GameState::VICTORY) currentLevelIndex++;
+                    else currentLevelIndex = 1;
+                    
                     currentState = GameState::MENU;
                     player.resetForNewLevel(game.getPlayerSpawnPosition());
                     player.getInventory().resetAll();
                     itemManager.spawnFromDungeon(game.level().dungeon(), game.getTileSize());
+                    enemyManager.spawnFromDungeon(game.level().dungeon(), currentLevelIndex, game.getTileSize());
                     showInventory = false;
                     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
                 }
@@ -280,10 +323,30 @@ int main(int argc, char* argv[]) {
                     playerController.handleInput(deltaTime);
                     player.update(deltaTime);
                     projectileManager.update(deltaTime);
+                    
+                    int prevHealth = player.getHealth();
+                    enemyManager.update(deltaTime);
+                    enemyProjManager.update(deltaTime);
+                    
+                    if (player.getHealth() < prevHealth) {
+                        damageFlashAlpha = 0.6f;
+                    }
+                    if (damageFlashAlpha > 0.0f) {
+                        damageFlashAlpha -= deltaTime * 2.0f;
+                        if (damageFlashAlpha < 0.0f) damageFlashAlpha = 0.0f;
+                    }
 
                     if (mouseClicked) {
                         player.attackMelee();
                         audioManager.playSound("shoot");
+                        
+                        AABB hitbox = player.getMeleeHitbox();
+                        for (auto& enemy : enemyManager.getEnemies()) {
+                            if (enemy->isAlive() && hitbox.intersects(enemy->collider)) {
+                                enemy->takeDamage(Player::MELEE_DAMAGE);
+                                audioManager.playSound("hurt");
+                            }
+                        }
                     }
 
                     glm::vec3 corrected = game.resolveWallCollision(
@@ -329,6 +392,18 @@ int main(int argc, char* argv[]) {
                     debugRenderer.drawCube(proj.transform.position,
                         proj.transform.scale, glm::vec3(1.0f, 0.8f, 0.1f));
                 }
+                
+                for (const auto& enemy : enemyManager.getEnemies()) {
+                    if (!enemy->isAlive()) continue;
+                    debugRenderer.drawCube(enemy->transform.position,
+                        enemy->transform.scale, enemy->color);
+                }
+                
+                for (const auto& proj : enemyProjManager.getProjectiles()) {
+                    if (!proj.active) continue;
+                    debugRenderer.drawCube(proj.transform.position,
+                        proj.transform.scale, glm::vec3(1.0f, 0.0f, 1.0f)); // Proyectiles enemigos
+                }
 
                 for (const auto& item : itemManager.getItems())
                 {
@@ -361,6 +436,10 @@ int main(int argc, char* argv[]) {
                         (float)framebufferWidth, (float)framebufferHeight,
                         game.level().tileMap(), player.transform.position,
                         player.getYaw(), game.getTileSize());
+                }
+
+                if (damageFlashAlpha > 0.0f) {
+                    debugRenderer.drawDamageFlash((float)framebufferWidth, (float)framebufferHeight, damageFlashAlpha);
                 }
 
                 inventoryUI.render(framebufferWidth, framebufferHeight, player,

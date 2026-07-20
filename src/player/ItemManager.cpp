@@ -2,6 +2,7 @@
 #include "player/Player.h"
 #include "world/Dungeon.h"
 #include "world/Room.h"
+#include <cstdlib>
 
 void ItemManager::spawnItem(const glm::vec3& worldPos, ItemType containedItem)
 {
@@ -40,6 +41,17 @@ void ItemManager::spawnFromDungeon(const world::Dungeon& dungeon, float tileSize
     if (!m_items.empty()) {
         m_items.back().setContainedItem(ItemType::GOLDEN_KEY);
     }
+}
+
+void ItemManager::spawnDrop(const glm::vec3& position)
+{
+    // 50% de probabilidad de no soltar nada
+    if ((std::rand() % 100) < 50) return;
+
+    ItemType dropType = ((std::rand() % 100) < 50) ? ItemType::HEALTH_POTION : ItemType::ENERGY_POTION;
+    
+    // Lo soltamos como un cofre para reutilizar la interacción del jugador
+    spawnItem(position, dropType);
 }
 
 Item* ItemManager::findChestNear(const glm::vec3& position, float range)
